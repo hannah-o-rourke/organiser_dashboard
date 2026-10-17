@@ -21,7 +21,7 @@ export const OPT_OUT_EMOJI = "❌";
 // any of these on an AI message opts someone back in
 export const OPT_IN_EMOJIS = ["✅", "✔", "☑"];
 
-const reactToChoose = `❌ React ${OPT_OUT_EMOJI} to leave your messages out of future summaries, or ✅ to be included again.`;
+const reactToChoose = `❌ Don't want your messages included? React ${OPT_OUT_EMOJI} to this message. If you opted out before and want back in, react ✅.`;
 
 const ThemesSchema = z.object({
     themes: z.array(z.object({
@@ -101,7 +101,7 @@ export function noticeEndsAt(enabledAt: number | null) {
 function waitText() {
     if (noticeHours <= 0) return "";
     const wait = noticeHours % 24 === 0 ? `${noticeHours / 24} ${noticeHours === 24 ? "day" : "days"}` : `${noticeHours} hours`;
-    return ` Nothing will be summarised for the next ${wait}.`;
+    return `\n\n⏳ Nothing will be summarised for the next ${wait}, so there's time to decide.`;
 }
 
 export const aiNotice = () =>
@@ -111,8 +111,7 @@ export const aiNotice = () =>
     "• It's about topics, never about who said what\n" +
     "• Only the short summary is kept\n\n" +
     `❌ *Don't want your messages included?* React ${OPT_OUT_EMOJI} to this message.\n` +
-    "✅ Changed your mind later? React ✅.\n\n" +
-    `If you don't react, your messages may be included.${waitText()}`;
+    `If you don't react, you're included. (Opted out and changed your mind? React ✅.)${waitText()}`;
 
 // Sent when someone joins while AI summaries are on, since they missed the
 // original notice. Reactions to it work like reactions to that notice.
@@ -122,7 +121,7 @@ export function aiWelcome(name: string) {
             `👋 *Welcome, ${name}!*\n\n` +
             "🤖 This group has AI summaries turned on. Organisers can ask an AI to sum up the main topics people talk about. Names are removed first, and only the short summary is kept.\n\n" +
             `❌ *Rather your messages weren't included?* React ${OPT_OUT_EMOJI} to this message.\n` +
-            "If you don't react, your messages may be included. You can change your mind any time with ✅.\n\n" +
+            "If you don't react, you're included. (Opted out and changed your mind? React ✅.)\n\n" +
             "📊 This group also uses the Engagement tool, which counts *when* people post (never what they write). Send *!engagement* to find out more.",
         context: { engagementAiNotice: true },
     };

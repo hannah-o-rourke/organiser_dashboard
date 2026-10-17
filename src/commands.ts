@@ -153,7 +153,7 @@ export async function handleConfirmation(event: MatrixEvent): Promise<Reply | un
 
         if (emoji.includes(OPT_OUT_EMOJI)) {
             await aiOptOut(event.room_id, event.sender, event.event_id);
-            return `👍 Got it, ${name}. Your messages will be left out of AI summaries. Changed your mind? React ✅.`;
+            return `👍 Got it, ${name}. Your messages will be left out of AI summaries. If you change your mind, react ✅ to any AI summary message.`;
         }
 
         if (OPT_IN_EMOJIS.some(tick => emoji.includes(tick))) {
