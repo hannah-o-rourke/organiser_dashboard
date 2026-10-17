@@ -161,8 +161,7 @@ Port 5061 would be the obvious next port after the other tools, but it's on
 | `tool_url` | public URL of this tool, written into the registration |
 | `hub_url` | tool hub base URL, used for dashboard links and history import |
 | `engagement_secret` | the `secret` in the registration, needed for the hub's `/api/send`, `/api/room/power-levels` and history |
-| `RESEND_API_KEY` | Resend API key for emailing organisers their dashboard link |
-| `EMAIL_FROM` | sender on a domain verified in Resend, e.g. `Chat Hackers <dashboard@yourdomain.org>` |
+| `RESEND_API_KEY` | Resend API key for emailing organisers their dashboard link. Emails come from `engagement@chathackers.uk`, so `chathackers.uk` must be verified in that Resend account |
 | `ANTHROPIC_API_KEY` | optional; turns on theme summaries |
 | `THEMES_PER_GROUP_PER_MONTH` | theme summaries per group per calendar month (default `1`) |
 | `AI_NOTICE_HOURS` | hours between switching AI summaries on and the first summary (default `48`) |

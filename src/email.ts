@@ -1,11 +1,13 @@
 import { Resend } from "resend";
 
-const { RESEND_API_KEY, EMAIL_FROM } = process.env;
+const { RESEND_API_KEY } = process.env;
+
+const EMAIL_FROM = "Chat Hackers <engagement@chathackers.uk>";
 
 const emailPattern = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 
 export function canEmail() {
-    return Boolean(RESEND_API_KEY && EMAIL_FROM);
+    return Boolean(RESEND_API_KEY);
 }
 
 export function normaliseEmail(text: string) {
@@ -40,7 +42,7 @@ export async function sendDashboardEmail(to: string, link: string, requestedBy: 
         "and another organiser can remove your access from the dashboard.</p>";
 
     const { error } = await resend.emails.send({
-        from: EMAIL_FROM!,
+        from: EMAIL_FROM,
         to,
         subject: "Your Engagement dashboard link",
         text,
