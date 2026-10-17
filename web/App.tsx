@@ -203,9 +203,10 @@ function Themes({ roomId }: { roomId: string }) {
 
 const patternInfo: { [pattern in Pattern]: { label: string; detail: string } } = {
   "new": { label: "👋 New", detail: "Joined in the last 2 weeks." },
+  "back": { label: "🌱 Back again", detail: "Joined in this week after more than 4 weeks away." },
   "quiet-this-week": { label: "💤 Quiet this week", detail: "Usually joins in, but nothing in the last 7 days." },
   "quieter": { label: "🌙 Gone quiet", detail: "Used to join in most weeks, but nothing for 2 weeks." },
-  "long-quiet": { label: "🕰️ Quiet for 4+ weeks", detail: "Has joined in before, but nothing for more than 4 weeks." },
+  "long-quiet": { label: "🕰️ Quiet for 4+ weeks", detail: "Has joined in before, but nothing for more than 4 weeks. That's OK: people drift in and out." },
   "not-seen": { label: "👀 Not heard from yet", detail: "Hasn't posted or reacted yet. They may still be reading." },
   "mostly-reacts": { label: "👍 Mostly reacts", detail: "Joins in with reactions more than messages." },
   "starts-conversations": { label: "🚀 Gets things going", detail: "Often the first to post after a quiet spell." },
@@ -330,7 +331,9 @@ function WeeklyChart({ weeks, onTip }: { weeks: WeekSummary[]; onTip: (tip: Tip)
 type Filter = "all" | "check-in" | Pattern;
 
 // the people an organiser might want to reach out to this week
-const checkInPatterns: Pattern[] = ["quiet-this-week", "quieter", "long-quiet", "not-seen", "new"];
+// people who've been quiet for 4+ weeks are left out on purpose: check-ins work
+// best early, and sometimes people step back and that's fine
+const checkInPatterns: Pattern[] = ["quiet-this-week", "quieter", "not-seen", "new"];
 
 function matchesFilter(person: ParticipantSummary, filter: Filter) {
   if (filter === "all") return true;
@@ -381,7 +384,7 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
         </button>
       ))}
     </div>
-    {filter === "check-in" && <p className="note">People who might appreciate a friendly hello: quiet this week, gone quiet, quiet for 4+ weeks, not heard from yet, or new.</p>}
+    {filter === "check-in" && <p className="note">People who might appreciate a friendly hello before they drift away: quiet this week, gone quiet, not heard from yet, or new.</p>}
     {filter !== "all" && filter !== "check-in" && <p className="note">{patternInfo[filter].detail}</p>}
     <div className="table-scroll">
       <table className="people">

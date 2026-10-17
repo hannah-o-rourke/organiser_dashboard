@@ -248,3 +248,17 @@ test("nothing for over 4 weeks is 'quiet for 4+ weeks' rather than 'gone quiet'"
     assert.ok(!lou.patterns.includes("quieter"));
     assert.ok(dashboard.discussion.some(d => d.observation.includes("more than 4 weeks")));
 });
+
+test("someone back this week after 4+ weeks away is 'back again'", () => {
+    const rows = [
+        activity({ event_id: "$b1", sender: "@bo:x", ts: NOW - 50 * DAY, kind: "message" }),
+        activity({ event_id: "$b2", sender: "@bo:x", ts: NOW - 2 * DAY, kind: "message" }),
+        activity({ event_id: "$c1", sender: "@cy:x", ts: NOW - 10 * DAY, kind: "message" }),
+        activity({ event_id: "$c2", sender: "@cy:x", ts: NOW - 2 * DAY, kind: "message" }),
+    ];
+    const dashboard = computeDashboard(rows, undefined, 0, NOW);
+
+    assert.ok(dashboard.participants.find(p => p.id === "@bo:x")!.patterns.includes("back"));
+    assert.ok(!dashboard.participants.find(p => p.id === "@cy:x")!.patterns.includes("back"));
+    assert.ok(dashboard.discussion.some(d => d.observation.includes("joined in again this week")));
+});

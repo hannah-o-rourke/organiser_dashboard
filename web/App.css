@@ -606,6 +606,7 @@ td.name {
 .chip-new { background: var(--chip-new); }
 .chip-quiet-this-week { background: var(--chip-quieter); }
 .chip-long-quiet { background: var(--chip-not-seen); }
+.chip-back { background: var(--chip-new); }
 .chip-quieter { background: var(--chip-quieter); }
 .chip-not-seen { background: var(--chip-not-seen); }
 .chip-mostly-reacts { background: var(--chip-mostly-reacts); }

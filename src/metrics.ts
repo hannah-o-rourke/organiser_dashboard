@@ -8,7 +8,7 @@ const RECENT = 14 * DAY;
 // longer than this without posting or reacting counts as long-term quiet
 const LONG_QUIET = 28 * DAY;
 
-export type Pattern = "new" | "quiet-this-week" | "quieter" | "long-quiet" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
+export type Pattern = "new" | "back" | "quiet-this-week" | "quieter" | "long-quiet" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
 
 export type ParticipantSummary = {
     id: string;
@@ -97,6 +97,18 @@ function plural(count: number, word: string, many = `${word}s`) {
 
 // `since` limits the view to a recent period. Joins and leaves from before it
 // are kept, so people who joined earlier but were quiet in the period still show.
+// Joined in during the last 7 days after 4+ weeks of nothing, having been
+// active at some point before that break.
+function backAfterBreak(days: Set<number>, now: number) {
+    const sorted = [...days].sort((a, b) => a - b);
+    const weekAgo = Math.floor((now - WEEK) / DAY);
+    const firstThisWeek = sorted.find(d => d >= weekAgo);
+    if (firstThisWeek === undefined) return false;
+    const before = sorted.filter(d => d < firstThisWeek);
+    if (!before.length) return false;
+    return firstThisWeek - before[before.length - 1] >= LONG_QUIET / DAY;
+}
+
 // Active in at least 2 of the 4 weeks before the last 7 days: someone whose
 // silence this week is out of character.
 function regularBeforeThisWeek(days: Set<number>, now: number) {
@@ -196,6 +208,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
             if (p.joinedAt !== null && p.joinedAt > now - RECENT) patterns.push("new");
             if (p.lastActive === null) patterns.push("not-seen");
             else if (p.lastActive < now - LONG_QUIET) patterns.push("long-quiet");
+            else if (backAfterBreak(days, now)) patterns.push("back");
             else if (p.lastActive < now - RECENT && activeBeforeRecent >= 2) patterns.push("quieter");
             else if (p.lastActive < now - WEEK && regularBeforeThisWeek(days, now)) patterns.push("quiet-this-week");
             if (p.reactions >= 3 && p.reactions >= 2 * p.messages) patterns.push("mostly-reacts");
@@ -290,6 +303,15 @@ function discussionPoints(dashboard: Dashboard, now: number, replies: { recent: 
         });
     }
 
+    const back = count("back");
+    if (back) {
+        points.push({
+            observation: `${plural(back, "person", "people")} joined in again this week after more than 4 weeks away. 🌱`,
+            question: "Has anyone said hello? A warm welcome back helps it stick.",
+            tip: "Thank people when they contribute. Positive replies make it more likely they'll join in again.",
+        });
+    }
+
     const quietWeek = count("quiet-this-week");
     if (quietWeek) {
         points.push({
@@ -303,7 +325,7 @@ function discussionPoints(dashboard: Dashboard, now: number, replies: { recent: 
     if (longQuiet) {
         points.push({
             observation: `${plural(longQuiet, "person", "people")} ${has(longQuiet)} posted or reacted for more than 4 weeks.`,
-            question: "Would they still like to be in the group? Some people would rather have occasional updates than a busy chat.",
+            question: "That's OK: people's lives change, and not everyone wants to be active all the time. If it feels right, you could ask whether they'd prefer occasional updates instead.",
             tip: "Rather than chasing, try a friendly one-to-one: ask what they'd find useful. An announcements-only group or broadcast list can suit people who just want the key dates.",
         });
     }
