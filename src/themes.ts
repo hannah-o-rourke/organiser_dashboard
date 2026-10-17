@@ -3,7 +3,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { MatrixEvent } from "../types";
 import { isCommand } from "./classify";
-import { countThemeRuns, getActivity, getAiSettings, isAiOptedOut, isOptedOut, logThemeRun, saveThemes, setAiEnabled } from "./duckdb";
+import { getActivity, getAiSettings, isAiOptedOut, isOptedOut, logThemeRun, saveThemes, setAiEnabled } from "./duckdb";
 import { canImportHistory, fetchHistory, sendToGroup } from "./hub";
 
 // Haiku keeps a month's summary to around half a penny per group, so one
@@ -13,12 +13,10 @@ const MINIMUM_MESSAGES = 10;
 // Haiku's price doubles above 100K input tokens; ~4 characters per token
 const MAXIMUM_CHARACTERS = 360_000;
 
-const runsPerGroupPerDay = Number(process.env.THEMES_PER_GROUP_PER_DAY ?? 1);
 // time people get to react ❌ after summaries are switched on, before the first one
 const noticeHours = Number(process.env.AI_NOTICE_HOURS ?? 48);
 
 export const OPT_OUT_EMOJI = "❌";
-const runsPerMonth = Number(process.env.THEMES_MONTHLY_LIMIT ?? 500);
 
 const ThemesSchema = z.object({
     themes: z.array(z.object({
@@ -47,10 +45,6 @@ export function monthRange(month: string) {
     const year = Number(match[1]);
     const index = Number(match[2]) - 1;
     return { start: Date.UTC(year, index, 1), end: Date.UTC(year, index + 1, 1) };
-}
-
-function plural(count: number, word: string, many: string) {
-    return `${count} ${count === 1 ? word : many}`;
 }
 
 function escapeRegExp(text: string) {
@@ -129,13 +123,6 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
         throw new Error(`To give people time to opt out, the first summary can run from ${new Date(availableFrom).toUTCString()}.`);
 
     const { start, end } = monthRange(month);
-    const thisMonth = monthRange(new Date().toISOString().slice(0, 7)).start;
-    const today = new Date(new Date().toISOString().slice(0, 10)).getTime();
-
-    if (await countThemeRuns(today, roomId) >= runsPerGroupPerDay)
-        throw new Error(`This group has already used its ${plural(runsPerGroupPerDay, "theme summary", "theme summaries")} for today. Try again tomorrow.`);
-    if (await countThemeRuns(thisMonth) >= runsPerMonth)
-        throw new Error("Theme summaries have reached their limit across all groups for this month. They reset on the 1st.");
 
     const events = await fetchHistory(roomId, start);
 

@@ -128,7 +128,7 @@ function Themes({ roomId }: { roomId: string }) {
   }, []);
 
   async function run() {
-    if (!confirm(`Find the main themes for ${monthName(month)}? That month's messages will be sent, without names, to Anthropic's Claude, leaving out anyone who opted out. Only the summary is kept, and the tool will post a message in the group to say so. Each group can do this once a day.`)) return;
+    if (!confirm(`Find the main themes for ${monthName(month)}? That month's messages will be sent, without names, to Anthropic's Claude, leaving out anyone who opted out. Only the summary is kept, and the tool will post a message in the group to say so.`)) return;
 
     setStatus("Reading the month's messages…");
     const response = await findThemes(roomId, month).catch(err => ({ success: false, message: err.message }));

@@ -228,13 +228,6 @@ export async function logThemeRun(roomId: string, inputTokens: number, outputTok
     );
 }
 
-export async function countThemeRuns(since: number, roomId?: string) {
-    const [{ count }] = roomId
-        ? await rows(`SELECT COUNT(*)::INTEGER AS count FROM ThemeRuns WHERE run_at >= $1::DOUBLE AND room_id = $2;`, [String(since), roomId])
-        : await rows(`SELECT COUNT(*)::INTEGER AS count FROM ThemeRuns WHERE run_at >= $1::DOUBLE;`, [String(since)]);
-    return count as number;
-}
-
 export async function saveOrganiserKey(roomId: string, userId: string, keyHash: string) {
     await connection.run(
         `INSERT OR REPLACE INTO OrganiserKeys VALUES ($1, $2, $3, $4::DOUBLE);`,
