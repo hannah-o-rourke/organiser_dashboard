@@ -156,7 +156,9 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
         throw new Error(`${lines.length} messages is more than one summary can cover. Ask the tool's host to raise the limit.`);
 
     log("  3/4 sending to Claude", { model: MODEL, characters: lines.join("\n").length });
-    const client = new Anthropic();
+    // keys that aren't scoped to a workspace have to name one on every request
+    const workspace = process.env.ANTHROPIC_WORKSPACE_ID;
+    const client = new Anthropic(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {});
     const response = await client.messages.parse({
         model: MODEL,
         max_tokens: 16000,

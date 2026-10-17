@@ -163,6 +163,7 @@ Port 5061 would be the obvious next port after the other tools, but it's on
 | `engagement_secret` | the `secret` in the registration, needed for the hub's `/api/send`, `/api/room/power-levels` and history |
 | `RESEND_API_KEY` | Resend API key for emailing organisers their dashboard link. Emails come from `engagement@dashboard.chathackers.uk`, so `dashboard.chathackers.uk` must be verified in that Resend account |
 | `ANTHROPIC_API_KEY` | optional; turns on theme summaries |
+| `ANTHROPIC_WORKSPACE_ID` | only needed if the Anthropic key isn't scoped to a workspace: that workspace's ID |
 | `AI_NOTICE_HOURS` | hours between switching AI summaries on and the first summary (default `48`) |
 | `ADMIN_POWER_LEVEL` | Matrix power level that counts as a group admin (default `50`) |
 | `bot_user_id` | optional; the hub's Matrix user, so imported history skips its messages. It's learnt from live events otherwise. |
