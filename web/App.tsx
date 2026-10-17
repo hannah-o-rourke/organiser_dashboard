@@ -203,6 +203,7 @@ function Themes({ roomId }: { roomId: string }) {
 
 const patternInfo: { [pattern in Pattern]: { label: string; detail: string } } = {
   "new": { label: "👋 New", detail: "Joined in the last 2 weeks." },
+  "quiet-this-week": { label: "💤 Quiet this week", detail: "Usually joins in, but nothing in the last 7 days." },
   "quieter": { label: "🌙 Gone quiet", detail: "Used to join in most weeks, but nothing for 2 weeks." },
   "not-seen": { label: "👀 Not heard from yet", detail: "Hasn't posted or reacted yet. They may still be reading." },
   "mostly-reacts": { label: "👍 Mostly reacts", detail: "Joins in with reactions more than messages." },
@@ -325,8 +326,26 @@ function WeeklyChart({ weeks, onTip }: { weeks: WeekSummary[]; onTip: (tip: Tip)
   );
 }
 
+type Filter = "all" | "check-in" | Pattern;
+
+// the people an organiser might want to reach out to this week
+const checkInPatterns: Pattern[] = ["quiet-this-week", "quieter", "not-seen", "new"];
+
+function matchesFilter(person: ParticipantSummary, filter: Filter) {
+  if (filter === "all") return true;
+  if (filter === "check-in") return person.patterns.some(p => checkInPatterns.includes(p));
+  return person.patterns.includes(filter);
+}
+
+function filterLabel(filter: Filter) {
+  if (filter === "all") return "Everyone";
+  if (filter === "check-in") return "💌 Worth a check-in";
+  return patternInfo[filter].label;
+}
+
 function Participants({ participants, weeks, hideNames, onTip }: { participants: ParticipantSummary[]; weeks: WeekSummary[]; hideNames: boolean; onTip: (tip: Tip) => void }) {
   const [sortKey, setSortKey] = useState<keyof ParticipantSummary>("messages");
+  const [filter, setFilter] = useState<Filter>("all");
 
   // anonymous labels follow join order, so they don't change when sorting
   const labels = useMemo(() => {
@@ -334,7 +353,8 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
     return new Map(byFirstSeen.map((p, i) => [p.id, `Member ${i + 1}`]));
   }, [participants]);
 
-  const sorted = [...participants].sort((a, b) => {
+  const shown = participants.filter(p => matchesFilter(p, filter));
+  const sorted = [...shown].sort((a, b) => {
     if (sortKey === "name") return (hideNames ? labels.get(a.id)! : a.name).localeCompare(hideNames ? labels.get(b.id)! : b.name);
     return (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0);
   });
@@ -348,7 +368,20 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
     ["lastActive", "🕒 Last seen"],
   ];
 
+  const count = (f: Filter) => participants.filter(p => matchesFilter(p, f)).length;
+  const filters: Filter[] = ["all", "check-in", ...(Object.keys(patternInfo) as Pattern[])];
+
   return (
+    <>
+    <div className="filters" role="group" aria-label="Show">
+      {filters.filter(f => f === "all" || count(f) > 0).map(f => (
+        <button key={f} className={`filter ${filter === f ? "on" : ""} ${f === "check-in" ? "check-in" : ""}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>
+          {filterLabel(f)} <span className="filter-count">{count(f)}</span>
+        </button>
+      ))}
+    </div>
+    {filter === "check-in" && <p className="note">People who might appreciate a friendly hello: quiet this week, gone quiet, not heard from yet, or new.</p>}
+    {filter !== "all" && filter !== "check-in" && <p className="note">{patternInfo[filter].detail}</p>}
     <div className="table-scroll">
       <table className="people">
         <thead>
@@ -395,6 +428,8 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
         </tbody>
       </table>
     </div>
+    {sorted.length === 0 && <p className="empty">No one here right now. 🎉</p>}
+    </>
   );
 }
 

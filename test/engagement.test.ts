@@ -222,3 +222,15 @@ test("a much quieter week than usual is noticed", () => {
     const discussion = computeDashboard(rows, undefined, 0, NOW).discussion;
     assert.ok(discussion.some(d => d.observation.startsWith("Last week was much quieter")));
 });
+
+test("someone regular who's been silent for a week is 'quiet this week', not 'gone quiet'", () => {
+    const rows: Activity[] = [];
+    for (const daysAgo of [9, 16, 23])
+        rows.push(activity({ event_id: `$p${daysAgo}`, sender: "@pat:x", ts: NOW - daysAgo * DAY, kind: "message" }));
+    rows.push(activity({ event_id: "$a", sender: "@ana:x", ts: NOW - DAY, kind: "message" }));
+
+    const dashboard = computeDashboard(rows, undefined, 0, NOW);
+    const pat = dashboard.participants.find(p => p.id === "@pat:x")!;
+    assert.deepEqual(pat.patterns.filter(p => p.startsWith("quiet")), ["quiet-this-week"]);
+    assert.ok(dashboard.discussion.some(d => d.observation.includes("usually joins in")));
+});

@@ -6,7 +6,7 @@ const WEEK = 7 * DAY;
 const CONVERSATION_GAP = 3 * 60 * 60 * 1000;
 const RECENT = 14 * DAY;
 
-export type Pattern = "new" | "quieter" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
+export type Pattern = "new" | "quiet-this-week" | "quieter" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
 
 export type ParticipantSummary = {
     id: string;
@@ -95,6 +95,18 @@ function plural(count: number, word: string, many = `${word}s`) {
 
 // `since` limits the view to a recent period. Joins and leaves from before it
 // are kept, so people who joined earlier but were quiet in the period still show.
+// Active in at least 2 of the 4 weeks before the last 7 days: someone whose
+// silence this week is out of character.
+function regularBeforeThisWeek(days: Set<number>, now: number) {
+    const weekAgo = now - WEEK;
+    const weeks = new Set<number>();
+    for (const d of days) {
+        const ts = d * DAY;
+        if (ts < weekAgo && ts >= weekAgo - 4 * WEEK) weeks.add(Math.floor((weekAgo - ts) / WEEK));
+    }
+    return weeks.size >= 2;
+}
+
 export function computeDashboard(activity: Activity[], room: RoomSettings | undefined, optedOut: number, now = Date.now(), since?: number): Dashboard {
     const inPeriod = since === undefined ? activity : activity.filter(a => a.kind === "join" || a.kind === "leave" || a.ts >= since);
     const sorted = [...inPeriod].sort((a, b) => a.ts - b.ts);
@@ -182,6 +194,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
             if (p.joinedAt !== null && p.joinedAt > now - RECENT) patterns.push("new");
             if (p.lastActive === null) patterns.push("not-seen");
             else if (p.lastActive < now - RECENT && activeBeforeRecent >= 2) patterns.push("quieter");
+            else if (p.lastActive < now - WEEK && regularBeforeThisWeek(days, now)) patterns.push("quiet-this-week");
             if (p.reactions >= 3 && p.reactions >= 2 * p.messages) patterns.push("mostly-reacts");
             if (p.conversationsStarted >= 3 && p.conversationsStarted >= 0.3 * p.messages) patterns.push("starts-conversations");
             if (p.messages >= 3 && groupResponseRate > 0 && p.responsesReceived / p.messages >= 1.5 * groupResponseRate) patterns.push("draws-responses");
@@ -271,6 +284,15 @@ function discussionPoints(dashboard: Dashboard, now: number, replies: { recent: 
             observation: `This only covers ${plural(days, "day")}, so it's too early to spot changes.`,
             question: "What does a normal month look like for this group? Check back in a few weeks.",
             tip: "Routines help a group settle: a weekly round-up, welcoming new people, and sharing the dates of the next actions.",
+        });
+    }
+
+    const quietWeek = count("quiet-this-week");
+    if (quietWeek) {
+        points.push({
+            observation: `${plural(quietWeek, "person", "people")} who usually ${quietWeek === 1 ? "joins" : "join"} in ${has(quietWeek)} posted or reacted this week.`,
+            question: "Could be nothing, or could be a busy week. Is it worth a quick, friendly hello?",
+            tip: "A short personal message (\"Missed you this week, hope all's well!\") often works better than a group shout-out.",
         });
     }
 

@@ -604,11 +604,53 @@ td.name {
 }
 
 .chip-new { background: var(--chip-new); }
+.chip-quiet-this-week { background: var(--chip-quieter); }
 .chip-quieter { background: var(--chip-quieter); }
 .chip-not-seen { background: var(--chip-not-seen); }
 .chip-mostly-reacts { background: var(--chip-mostly-reacts); }
 .chip-starts-conversations { background: var(--chip-starts); }
 .chip-draws-responses { background: var(--chip-draws); }
+
+/* people filters */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+button.filter {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  font-size: 0.92rem;
+}
+
+button.filter.check-in {
+  border-color: var(--accent);
+}
+
+button.filter.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.filter-count {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.08);
+  font-variant-numeric: tabular-nums;
+}
+
+button.filter.on .filter-count {
+  background: rgb(255 255 255 / 0.25);
+}
 
 /* AI summaries */
 
