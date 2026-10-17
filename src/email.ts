@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const { RESEND_API_KEY } = process.env;
 
-const EMAIL_FROM = "Chat Hackers <engagement@chathackers.uk>";
+const EMAIL_FROM = "Chat Hackers <engagement@dashboard.chathackers.uk>";
 
 const emailPattern = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 
