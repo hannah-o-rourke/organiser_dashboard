@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useEffect, useMemo, useState } from "react";
 import type { Dashboard, ParticipantSummary, Pattern, WeekSummary } from "../src/metrics";
 import type { Theme } from "../src/themes";
-import { findThemes, getDashboard, getThemes, importHistory, NotAllowed, switchAi } from "./requests";
+import { addOrganiser, findThemes, forgetGroup, getDashboard, getOrganisers, getThemes, importHistory, NotAllowed, removeOrganiser, switchAi } from "./requests";
 
 type DashboardResult = Dashboard & { canImportHistory: boolean };
 
@@ -24,6 +24,94 @@ function monthKey(offset: number) {
 
 function monthName(month: string) {
   return new Date(`${month}-01T00:00:00Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+type Organiser = { email: string; status: "active" | "pending"; requestedBy: string; createdAt: number };
+
+function Organisers({ roomId }: { roomId: string }) {
+  const [organisers, setOrganisers] = useState<Organiser[] | null>(null);
+  const [you, setYou] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [status, setStatus] = useState("");
+
+  async function load() {
+    const result = await getOrganisers(roomId).catch(() => null);
+    if (result) {
+      setOrganisers(result.organisers);
+      setYou(result.you);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function grant(email: string) {
+    setStatus(`Emailing ${email}…`);
+    const result = await addOrganiser(roomId, email).catch(err => ({ success: false, message: err.message }));
+    setStatus(result.success ? `Sent a dashboard link to ${email}. The group has been told.` : result.message);
+    setNewEmail("");
+    load();
+  }
+
+  async function remove(email: string, pending: boolean) {
+    if (!confirm(pending ? `Decline the request for ${email}?` : `Remove ${email}'s access? Their link will stop working.`)) return;
+    await removeOrganiser(roomId, email).catch(() => null);
+    setStatus(pending ? `Declined ${email}.` : `Removed ${email}.`);
+    load();
+  }
+
+  async function forget() {
+    if (!confirm("Delete everything the Engagement tool holds for this group: activity, themes and settings? Organisers keep their access. This can't be undone, and the group will be told.")) return;
+    await forgetGroup(roomId).catch(() => null);
+    window.location.reload();
+  }
+
+  if (!organisers) return <p className="note">Loading…</p>;
+
+  const pending = organisers.filter(o => o.status === "pending");
+  const active = organisers.filter(o => o.status === "active");
+
+  return (
+    <>
+      {pending.length > 0 && (
+        <>
+          <h3>Waiting for approval</h3>
+          <ul className="organisers">
+            {pending.map(o => (
+              <li key={o.email}>
+                <span><strong>{o.email}</strong> <small>asked for by {o.requestedBy} on {day(o.createdAt)}</small></span>
+                <span className="actions">
+                  <button onClick={() => grant(o.email)}>Approve</button>
+                  <button className="secondary" onClick={() => remove(o.email, true)}>Decline</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h3>Organisers with access</h3>
+      <ul className="organisers">
+        {active.map(o => (
+          <li key={o.email}>
+            <span><strong>{o.email}</strong>{o.email === you && <small> (you)</small>}</span>
+            <span className="actions"><button className="secondary" onClick={() => remove(o.email, false)}>Remove</button></span>
+          </li>
+        ))}
+        {active.length === 0 && <li className="note">Only group admins with a chat link.</li>}
+      </ul>
+      <form className="import" onSubmit={e => { e.preventDefault(); grant(newEmail); }}>
+        <input type="email" required placeholder="name@example.org" value={newEmail} onChange={e => setNewEmail(e.target.value)} aria-label="Organiser's email" />
+        <button type="submit">Send dashboard link</button>
+      </form>
+      {status && <p className="note">{status}</p>}
+      <details>
+        <summary>Delete this group's data</summary>
+        <p className="note">Deletes every recorded post, reaction and join, the theme summaries and the settings. Everyone's opt-outs are kept.</p>
+        <button className="danger" onClick={forget}>Delete everything</button>
+      </details>
+    </>
+  );
 }
 
 function Themes({ roomId }: { roomId: string }) {
@@ -313,7 +401,7 @@ export default function App() {
   }
 
   if (!roomId)
-    return <main><h1>Engagement</h1><p>Group admins can get a link to this page by sending <code>!engagement dashboard</code> in the group.</p></main>;
+    return <main><h1>Engagement</h1><p>Organisers can get a link to this page by sending <code>!engagement email your@address</code> in the group.</p></main>;
 
   if (error)
     return <main><h1>Engagement</h1><p>{error}</p></main>;
@@ -331,7 +419,7 @@ export default function App() {
         <h1>📊 Engagement</h1>
         <p className="lede">
           How participation in this group has changed over time. It's a starting point for conversations with the group, not a judgement of anyone.
-          Only the group's admins can see this page. Everyone can see what's held about themselves with <code>!engagement me</code>, and opt out with <code>!engagement optout</code>.
+          Only the group's organisers can see this page. Everyone can see what's held about themselves with <code>!engagement me</code>, and opt out with <code>!engagement optout</code>.
           Your link is personal, so please don't share it.
         </p>
         <label className="toggle">
@@ -431,6 +519,11 @@ export default function App() {
       <section>
         <h2>Main themes</h2>
         <Themes roomId={roomId} />
+      </section>
+
+      <section>
+        <h2>Organisers and data</h2>
+        <Organisers roomId={roomId} />
       </section>
 
       <section>

@@ -57,3 +57,19 @@ export async function findThemes(roomId: string, month: string) {
 export async function switchAi(roomId: string, enabled: boolean) {
     return await call("/api/themes/switch", roomId, { enabled });
 }
+
+export async function getOrganisers(roomId: string) {
+    return await call("/api/organisers", roomId);
+}
+
+export async function addOrganiser(roomId: string, email: string) {
+    return await call("/api/organisers", roomId, { email });
+}
+
+export async function removeOrganiser(roomId: string, email: string) {
+    return await call("/api/organisers/remove", roomId, { email });
+}
+
+export async function forgetGroup(roomId: string) {
+    return await call("/api/forget", roomId, {});
+}

@@ -7,11 +7,13 @@ import { MatrixEvent } from "../types";
 import { forgetCachedPowerLevels, organiserFor } from "./access";
 import { classify, isCommand } from "./classify";
 import { firstContactNotice, handleCommand, handleConfirmation, Reply } from "./commands";
-import { deleteActivityEvent, getActivity, getOptOutCount, getRoom, getThemes, insertActivity, insertRoom, isOptedOut, savePowerLevels, startDuckDB, getAiSettings, getAiOptOutCount, aiOptInByReaction } from "./duckdb";
-import { canImportHistory, TOOL_ID } from "./hub";
+import { deleteActivityEvent, getActivity, getOptOutCount, getRoom, getThemes, insertActivity, insertRoom, isOptedOut, savePowerLevels, startDuckDB, forgetRoom, getAiSettings, getAiOptOutCount, aiOptInByReaction } from "./duckdb";
+import { canImportHistory, sendToGroup, TOOL_ID } from "./hub";
 import { importHistory } from "./history";
 import { computeDashboard } from "./metrics";
 import { canFindThemes, findThemes, noticeEndsAt, switchAi } from "./themes";
+import { canEmail } from "./email";
+import { grantAccess, listOrganisers, removeAccess } from "./organisers";
 
 const { engagement_secret, tool_url } = process.env;
 
@@ -26,7 +28,7 @@ const moduleRegistration = {
   uuid: uuidv4(),
   url: tool_url || `http://localhost:${port}`,
   emoji: "📊",
-  introduction: "This records when people post, react, reply and join, but never what they write, so the group's admins can see how participation changes over time. AI theme summaries stay off unless an admin switches them on, and you'll be able to opt out here first. Send !engagement to see exactly what's tracked, get your own data, or opt out.",
+  introduction: "This records when people post, react, reply and join, but never what they write, so the group's organisers can see how participation changes over time. Organisers: send !engagement email your@address to get the dashboard link. AI theme summaries stay off unless an organiser switches them on, and you'll be able to opt out here first. Send !engagement to see what's tracked, get your own data, or opt out.",
   title: "Engagement",
   description: "Shows organisers how participation changes over time, with questions to discuss with the group",
   secret: engagement_secret,
@@ -106,9 +108,11 @@ async function start() {
     const roomId = String(req.query.roomId ?? "");
     const key = req.get("x-engagement-key") ?? undefined;
 
-    if (!await organiserFor(roomId, key))
-      return res.status(401).send({ success: false, message: "This link isn't valid any more. Group admins can get a new one by sending !engagement dashboard in the group." });
+    const organiser = await organiserFor(roomId, key);
+    if (!organiser)
+      return res.status(401).send({ success: false, message: "This link isn't valid any more. Organisers can get a new one by sending !engagement email your@address in the group." });
 
+    res.locals.organiser = organiser;
     next();
   });
 
@@ -175,6 +179,30 @@ async function start() {
       console.error("finding themes failed", err);
       res.send({ success: false, message: err instanceof Error ? err.message : String(err) });
     }
+  })
+
+  app.get("/api/organisers", async (req, res) => {
+    const { roomId } = req.query;
+    res.send({ organisers: await listOrganisers(roomId as string), you: res.locals.organiser, canEmail: canEmail() });
+  })
+
+  // add someone directly, or approve a request made in the chat
+  app.post("/api/organisers", async (req, res) => {
+    const { roomId } = req.query;
+    res.send(await grantAccess(roomId as string, String(req.body.email ?? ""), res.locals.organiser));
+  })
+
+  // decline a request, or remove someone's access
+  app.post("/api/organisers/remove", async (req, res) => {
+    const { roomId } = req.query;
+    res.send(await removeAccess(roomId as string, String(req.body.email ?? "")));
+  })
+
+  app.post("/api/forget", async (req, res) => {
+    const { roomId } = req.query;
+    await forgetRoom(roomId as string);
+    await sendToGroup(roomId as string, "📊 An organiser has deleted everything the Engagement tool held for this group. Tracking starts afresh from now unless the tool is removed (⚙️, then 🙏).");
+    res.send({ success: true });
   })
 
   app.listen(port);

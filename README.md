@@ -6,7 +6,7 @@ over time, and turns what it sees into questions to take back to the group.
 It is built to help organisers **ask better questions**, not to score people.
 Someone who reads everything and never posts may be as committed as the most
 active member, and this tool can't tell the difference. The dashboard says so
-plainly. Only the group's WhatsApp or Signal admins can open it. Everyone can
+plainly. Only the group's organisers can open it. Everyone can
 see what's held about themselves, and anyone can opt out.
 
 ## What "engagement" means here
@@ -54,13 +54,21 @@ the **Questions to discuss** section, for organisers to explore with people.
   and flags (`src/classify.ts`) and the body is discarded.
 - **It announces itself.** The first time the tool sees activity in a group, it
   posts what it records and how to opt out. `!engagement` repeats that at any time.
-- **Only admins see the dashboard.** An admin sends `!engagement dashboard`,
-  the tool checks they're an admin in the WhatsApp or Signal group, and DMs them
-  a personal link. The group sees a message saying a link was sent. Every
-  dashboard request re-checks admin status, so a link stops working when its
-  owner stops being an admin or asks for a new one. Only a hash of each key is
+- **Only organisers see the dashboard.** When the tool first hears from a group,
+  its welcome message asks organisers to send `!engagement email your@address`.
+  The tool emails that address a personal dashboard link (via Resend), and the
+  group sees only a masked address (`h•••@campaignlab.uk`). The first address in
+  a group is set up straight away. After that, a new address waits on the
+  dashboard until an existing organiser approves it. Organisers can also add,
+  remove and approve people from the dashboard, and the group is told whenever
+  someone is given access. Asking again sends a fresh link and stops the old
+  one, removing someone stops their link, and only a hash of each key is
   stored. The key is moved out of the address bar once the page loads, and
   there's a *Hide names* toggle for screen sharing.
+- **Group admins, once the hub supports it.** With the tool-hub power-levels
+  patch applied, WhatsApp/Signal admins are approved automatically, can get a
+  link by DM with `!engagement dashboard`, and non-admins can't be the first
+  organiser.
 - **People control their own data:**
   - `!engagement me` sends you, privately, what's held about you
   - `!engagement optout` deletes it and stops recording you, including your
@@ -68,8 +76,8 @@ the **Questions to discuss** section, for organisers to explore with people.
   - `!engagement optin` reverses that
   - ❌ on the AI notice, or `!engagement ai optout` / `ai optin`, keeps your
     messages out of AI theme summaries or includes them again
-  - `!engagement forget`, confirmed with a 🗑️ reaction by an admin, deletes
-    everything for the group
+  - organisers can delete everything held for the group from the dashboard
+    (*Organisers and data*). Organisers keep their access, and opt-outs are kept
 - **Deleted messages are deleted here too** (the tool listens for redactions).
 - **Importing earlier history is opt-in and announced.** People weren't told
   about tracking when they sent those messages, so the dashboard asks for
@@ -81,7 +89,7 @@ Admins can get a month's main themes summarised by AI. This is the only
 feature that reads what people wrote, so it's opt-out and switched off by
 default:
 
-1. **An admin switches it on** with the *AI theme summaries* switch on the
+1. **An organiser switches it on** with the *AI theme summaries* switch on the
    dashboard. Nothing is ever sent to Claude while it's off.
 2. **Switching on posts a notice in the group** explaining what will happen.
    Anyone who reacts ❌ to it has their messages left out of every summary, and
@@ -93,7 +101,7 @@ default:
 3. **There's a notice period.** No summary can run until `AI_NOTICE_HOURS`
    (default 48) after switching on, so people have time to react. Switching off
    and on again starts it afresh. Earlier opt-outs carry over.
-4. **An admin presses *Find themes*** for a month. The tool fetches that month's
+4. **An organiser presses *Find themes*** for a month. The tool fetches that month's
    text messages from the hub. It leaves out anyone who opted out of AI
    summaries or of the tool, plus the bot and commands. It strips quoted
    replies, Matrix ids, phone numbers, emails and members' names, and labels
@@ -114,7 +122,7 @@ is logged in the `ThemeRuns` table. A month too long for one request (about
 100K tokens) is refused rather than cut short. Without `ANTHROPIC_API_KEY` the
 button doesn't appear.
 
-## Admin access needs a tool-hub update
+## Admin checks need a tool-hub update (optional)
 
 The tool asks the hub who the group's admins are, through a new
 `GET /api/room/power-levels?roomId&toolId&secret` endpoint in
@@ -123,9 +131,11 @@ tool-hub repo with `git apply`. The mautrix bridges give WhatsApp and Signal
 admins a raised Matrix power level, and anyone at `ADMIN_POWER_LEVEL` (default
 50) or above counts as an admin.
 
-Without the patch, the tool falls back to the last power-levels change it saw
-in the chat. In a group where admins haven't changed since the tool was added,
-that means nobody can open the dashboard, and the tool says why.
+Without the patch, everything works through organiser emails. The only
+difference is that the first person to send `!engagement email` becomes the
+group's first organiser, whoever they are. Because that's announced in the
+group, a wrong first claim is easy to spot: another organiser can be added and
+the wrong one removed from the dashboard.
 
 ## Running it
 
@@ -151,6 +161,8 @@ Port 5061 would be the obvious next port after the other tools, but it's on
 | `tool_url` | public URL of this tool, written into the registration |
 | `hub_url` | tool hub base URL, used for dashboard links and history import |
 | `engagement_secret` | the `secret` in the registration, needed for the hub's `/api/send`, `/api/room/power-levels` and history |
+| `RESEND_API_KEY` | Resend API key for emailing organisers their dashboard link |
+| `EMAIL_FROM` | sender on a domain verified in Resend, e.g. `Chat Hackers <dashboard@yourdomain.org>` |
 | `ANTHROPIC_API_KEY` | optional; turns on theme summaries |
 | `THEMES_PER_GROUP_PER_MONTH` | theme summaries per group per calendar month (default `1`) |
 | `AI_NOTICE_HOURS` | hours between switching AI summaries on and the first summary (default `48`) |

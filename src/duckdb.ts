@@ -82,6 +82,17 @@ export async function startDuckDB(fileName = "engagement_duckdb.db") {
         created_at DOUBLE,
         PRIMARY KEY (room_id, user_id)
     );`);
+    // organisers who get the dashboard by email; 'pending' until an existing
+    // organiser approves. key_hash is null until a link has been sent.
+    await connection.run(`CREATE TABLE IF NOT EXISTS OrganiserEmails (
+        room_id VARCHAR,
+        email VARCHAR,
+        status VARCHAR,
+        key_hash VARCHAR,
+        requested_by VARCHAR,
+        created_at DOUBLE,
+        PRIMARY KEY (room_id, email)
+    );`);
     await connection.run(`CREATE TABLE IF NOT EXISTS PowerLevels (
         room_id VARCHAR PRIMARY KEY,
         content VARCHAR
@@ -147,10 +158,10 @@ export async function optIn(roomId: string, sender: string) {
     await connection.run(`DELETE FROM OptOuts WHERE room_id = $1 AND sender = $2;`, [roomId, sender]);
 }
 
+// deletes what's held about the group's members; who can open the dashboard stays
 export async function forgetRoom(roomId: string) {
     await connection.run(`DELETE FROM Activity WHERE room_id = $1;`, [roomId]);
     await connection.run(`DELETE FROM Themes WHERE room_id = $1;`, [roomId]);
-    await connection.run(`DELETE FROM OrganiserKeys WHERE room_id = $1;`, [roomId]);
     await connection.run(`DELETE FROM Rooms WHERE room_id = $1;`, [roomId]);
 }
 
@@ -243,4 +254,32 @@ export async function savePowerLevels(roomId: string, content: object) {
 export async function getLatestPowerLevels(roomId: string) {
     const [found] = await rows(`SELECT content FROM PowerLevels WHERE room_id = $1;`, [roomId]);
     return found ? JSON.parse(found.content as string) : null;
+}
+
+export type OrganiserEmail = { email: string; status: "active" | "pending"; requestedBy: string; createdAt: number };
+
+export async function getOrganiserEmails(roomId: string) {
+    const found = await rows(`SELECT email, status, requested_by, created_at FROM OrganiserEmails WHERE room_id = $1 ORDER BY created_at;`, [roomId]);
+    return found.map(row => ({
+        email: row.email as string,
+        status: row.status as OrganiserEmail["status"],
+        requestedBy: row.requested_by as string,
+        createdAt: row.created_at as number,
+    }));
+}
+
+export async function saveOrganiserEmail(roomId: string, email: string, status: OrganiserEmail["status"], keyHash: string | null, requestedBy: string) {
+    await connection.run(
+        `INSERT OR REPLACE INTO OrganiserEmails VALUES ($1, $2, $3, $4, $5, $6::DOUBLE);`,
+        [roomId, email, status, keyHash, requestedBy, String(Date.now())]
+    );
+}
+
+export async function removeOrganiserEmail(roomId: string, email: string) {
+    await connection.run(`DELETE FROM OrganiserEmails WHERE room_id = $1 AND email = $2;`, [roomId, email]);
+}
+
+export async function getEmailForKey(roomId: string, keyHash: string) {
+    const [found] = await rows(`SELECT email FROM OrganiserEmails WHERE room_id = $1 AND key_hash = $2 AND status = 'active';`, [roomId, keyHash]);
+    return found?.email as string | undefined;
 }

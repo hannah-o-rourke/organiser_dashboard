@@ -4,6 +4,7 @@ import { aiOptIn, aiOptOut, forgetRoom, getActivity, getAiSettings, getRoom, isA
 import { isAdmin, issueKey } from "./access";
 import { dashboardLink } from "./hub";
 import { computeDashboard } from "./metrics";
+import { requestByChat } from "./organisers";
 import { OPT_OUT_EMOJI } from "./themes";
 
 export const FORGET_EMOJI = "🗑️";
@@ -11,19 +12,22 @@ export const FORGET_EMOJI = "🗑️";
 export type Reply = string | { message: string; context?: object; recipient?: string };
 
 export const whatIsTracked =
-    "📊 The Engagement tool keeps a record of *when* people post, react, reply and join or leave this group, so the group's admins can see how participation changes over time.\n\n" +
-    "It does NOT store what anyone writes, read receipts, or anything from private chats. Only group admins can see the dashboard, and it's for asking better questions and checking in with people, not rating anyone. Anyone can see what's held about themselves.\n\n" +
-    "AI theme summaries are off unless an admin switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting " + "❌" + " to that message or sending !engagement ai optout.\n\n" +
+    "📊 The Engagement tool keeps a record of *when* people post, react, reply and join or leave this group, so the group's organisers can see how participation changes over time.\n\n" +
+    "It does NOT store what anyone writes, read receipts, or anything from private chats. Only the group's organisers can see the dashboard, and it's for asking better questions and checking in with people, not rating anyone. Anyone can see what's held about themselves.\n\n" +
+    "AI theme summaries are off unless an organiser switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting " + "❌" + " to that message or sending !engagement ai optout.\n\n" +
     "Commands:\n" +
     "• !engagement me: get a private message with what's held about you\n" +
     "• !engagement optout: stop tracking you here and delete what's held\n" +
     "• !engagement optin: start tracking you again\n" +
     "• !engagement ai optout / ai optin: keep your messages out of AI summaries, or include them again\n" +
-    "• !engagement forget: delete everything held for this group (admins)\n" +
-    "• !engagement dashboard: admins get a private link to the dashboard";
+    "• !engagement email name@example.org: organisers get the dashboard link by email";
 
-const notAdmin = "Only this group's admins can open the Engagement dashboard. Send !engagement me to see what's held about you.";
-const adminsUnknown = "The Engagement tool can't check who this group's admins are yet, so the dashboard is locked. Ask whoever runs the tool hub to apply its power-levels update.";
+const askForEmail =
+    "\n\n👋 Organisers: send !engagement email your@address to get the dashboard link by email. " +
+    "The first address is set up straight away; after that, new ones need an existing organiser to approve them.";
+
+const notAdmin = "Only this group's organisers can open the Engagement dashboard. Send !engagement me to see what's held about you.";
+const adminsUnknown = "Organisers get the Engagement dashboard by email: send !engagement email your@address.";
 
 // Admins get a personal link by DM; the group is told one was sent, so it's
 // visible who is looking at the dashboard.
@@ -106,12 +110,17 @@ export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]
         return `Thanks, ${event.displayname ?? "your"}${event.displayname ? "'s" : ""} messages may be included in AI theme summaries here.`;
     }
 
+    if (args === "email" || args.startsWith("email "))
+        return await requestByChat(event, args.slice("email".length));
+
     if (args === "dashboard" || args === "organiser" || args === "organizer")
         return await sendDashboardLink(event);
 
     if (args === "forget") {
         const admin = await isAdmin(roomId, event.sender);
-        if (!admin) return admin === null ? adminsUnknown : "Only this group's admins can delete the group's data. Send !engagement optout to delete your own.";
+        if (!admin) return admin === null
+            ? "Organisers can delete everything held for this group from the dashboard."
+            : "Only this group's admins can delete the group's data. Send !engagement optout to delete your own.";
 
         return {
             message: `React to this message with ${FORGET_EMOJI} to delete everything the Engagement tool holds for this group. Tracking starts afresh afterwards unless the tool is also removed (⚙️, then 🙏).`,
@@ -147,5 +156,5 @@ export async function handleConfirmation(event: MatrixEvent): Promise<Reply | un
 }
 
 export function firstContactNotice() {
-    return whatIsTracked;
+    return whatIsTracked + askForEmail;
 }

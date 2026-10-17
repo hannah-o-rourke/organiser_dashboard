@@ -96,7 +96,7 @@ export function noticeEndsAt(enabledAt: number | null) {
 }
 
 export const aiNotice = () =>
-    `📊 An admin has switched on AI theme summaries for this group. From time to time they can ask for a month's main topics, summarised by Anthropic's Claude.\n\n` +
+    `📊 An organiser has switched on AI theme summaries for this group. From time to time they can ask for a month's main topics, summarised by Anthropic's Claude.\n\n` +
     `Messages are sent without names or contact details, the summary is about topics and never people, and only the summary is kept.\n\n` +
     `If you DON'T want your messages included, react ${OPT_OUT_EMOJI} to this message (or send !engagement ai optout). If you don't, your messages may be included. ` +
     `Nothing will be summarised for ${noticeHours} hours, and you can change your mind at any time.`;
@@ -109,7 +109,7 @@ export async function switchAi(roomId: string, enabled: boolean) {
 
     const announcement = enabled
         ? await sendToGroup(roomId, aiNotice(), { engagementAiNotice: true })
-        : await sendToGroup(roomId, "📊 An admin has switched off AI theme summaries for this group. No more messages will be sent to Claude.");
+        : await sendToGroup(roomId, "📊 An organiser has switched off AI theme summaries for this group. No more messages will be sent to Claude.");
 
     if (enabled && !announcement.success)
         return { success: false, message: `Couldn't post the opt-out notice in the group (${announcement.message}), so summaries stay off.` };
@@ -118,7 +118,7 @@ export async function switchAi(roomId: string, enabled: boolean) {
     return { success: true };
 }
 
-// An admin asks for a month's themes. Messages are fetched from the hub,
+// An organiser asks for a month's themes. Messages are fetched from the hub,
 // anonymised, sent to Claude, and only the resulting summary is kept.
 export async function findThemes(roomId: string, month: string, botUserId: string | undefined) {
     const settings = await getAiSettings(roomId);
@@ -177,7 +177,7 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
     await saveThemes(roomId, month, lines.length, themes);
 
     const announcement = await sendToGroup(roomId,
-        `📊 An admin asked for the main themes in this group for ${month}. ${lines.length} messages were sent, without names, to Anthropic's Claude to summarise. ` +
+        `📊 An organiser asked for the main themes in this group for ${month}. ${lines.length} messages were sent, without names, to Anthropic's Claude to summarise. ` +
         `Only the summary of topics is kept, never the messages or who said what. Send !engagement ai optout to keep your messages out of future summaries.`);
 
     return { themes, messageCount: lines.length, announced: announcement.success, announcementError: announcement.message };

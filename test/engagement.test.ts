@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { classify } from "../src/classify";
 import { computeDashboard, weekStart } from "../src/metrics";
 import { anonymise, transcript } from "../src/themes";
+import { maskEmail, normaliseEmail } from "../src/email";
 import { Activity, MatrixEvent } from "../types";
 
 const BOT = "@chathackers:matrix.campaignlab.uk";
@@ -158,4 +159,12 @@ test("transcript labels speakers without names and leaves out what it should", (
     assert.match(lines[0], /Person 1: Leaflets on Saturday\?$/);
     assert.match(lines[1], /Person 2: yes, see you there$/);
     assert.ok(!lines.join().includes("@"));
+});
+
+test("email addresses are checked, normalised and masked for the group", () => {
+    assert.equal(normaliseEmail("  Hannah@CampaignLab.uk "), "hannah@campaignlab.uk");
+    assert.equal(normaliseEmail("mailto:ben@example.org"), "ben@example.org");
+    assert.equal(normaliseEmail("not-an-email"), null);
+    assert.equal(normaliseEmail("a@b"), null);
+    assert.equal(maskEmail("hannah@campaignlab.uk"), "h•••@campaignlab.uk");
 });

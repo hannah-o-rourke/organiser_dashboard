@@ -455,6 +455,52 @@ td.patterns {
   border-color: var(--text-secondary);
 }
 
+.organisers {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+
+.organisers li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.organisers small {
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button.secondary {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+button.danger {
+  background: #b42318;
+  color: #fff;
+}
+
+.import input[type="email"] {
+  min-width: 220px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font: inherit;
+}
+
 .tooltip {
   position: fixed;
   pointer-events: none;
