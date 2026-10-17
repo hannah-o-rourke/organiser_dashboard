@@ -13,7 +13,7 @@ const MINIMUM_MESSAGES = 10;
 // Haiku's price doubles above 100K input tokens; ~4 characters per token
 const MAXIMUM_CHARACTERS = 360_000;
 
-const runsPerGroupPerMonth = Number(process.env.THEMES_PER_GROUP_PER_MONTH ?? 1);
+const runsPerGroupPerDay = Number(process.env.THEMES_PER_GROUP_PER_DAY ?? 1);
 // time people get to react ❌ after summaries are switched on, before the first one
 const noticeHours = Number(process.env.AI_NOTICE_HOURS ?? 48);
 
@@ -130,9 +130,10 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
 
     const { start, end } = monthRange(month);
     const thisMonth = monthRange(new Date().toISOString().slice(0, 7)).start;
+    const today = new Date(new Date().toISOString().slice(0, 10)).getTime();
 
-    if (await countThemeRuns(thisMonth, roomId) >= runsPerGroupPerMonth)
-        throw new Error(`This group has already used its ${plural(runsPerGroupPerMonth, "theme summary", "theme summaries")} for this month. It resets on the 1st.`);
+    if (await countThemeRuns(today, roomId) >= runsPerGroupPerDay)
+        throw new Error(`This group has already used its ${plural(runsPerGroupPerDay, "theme summary", "theme summaries")} for today. Try again tomorrow.`);
     if (await countThemeRuns(thisMonth) >= runsPerMonth)
         throw new Error("Theme summaries have reached their limit across all groups for this month. They reset on the 1st.");
 

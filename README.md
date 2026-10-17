@@ -115,8 +115,8 @@ name, so nicknames can get through. Claude is told not to name anyone either
 way.
 
 **Cost.** One hosted API key serves every group. Haiku 5.5 costs roughly half a
-penny for a busy group's month. Each group gets one summary per calendar month
-(`THEMES_PER_GROUP_PER_MONTH`), and there's a cap across all groups
+penny for a busy group's month. Each group gets one summary a day
+(`THEMES_PER_GROUP_PER_DAY`, days in UTC), and there's a cap across all groups
 (`THEMES_MONTHLY_LIMIT`, default 500, about $2.50). Each request's token usage
 is logged in the `ThemeRuns` table. A month too long for one request (about
 100K tokens) is refused rather than cut short. Without `ANTHROPIC_API_KEY` the
@@ -163,7 +163,7 @@ Port 5061 would be the obvious next port after the other tools, but it's on
 | `engagement_secret` | the `secret` in the registration, needed for the hub's `/api/send`, `/api/room/power-levels` and history |
 | `RESEND_API_KEY` | Resend API key for emailing organisers their dashboard link. Emails come from `engagement@dashboard.chathackers.uk`, so `dashboard.chathackers.uk` must be verified in that Resend account |
 | `ANTHROPIC_API_KEY` | optional; turns on theme summaries |
-| `THEMES_PER_GROUP_PER_MONTH` | theme summaries per group per calendar month (default `1`) |
+| `THEMES_PER_GROUP_PER_DAY` | theme summaries per group per day, UTC (default `1`) |
 | `AI_NOTICE_HOURS` | hours between switching AI summaries on and the first summary (default `48`) |
 | `THEMES_MONTHLY_LIMIT` | theme summaries across all groups per calendar month (default `500`) |
 | `ADMIN_POWER_LEVEL` | Matrix power level that counts as a group admin (default `50`) |
