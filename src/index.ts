@@ -4,6 +4,7 @@ import * as fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { MatrixEvent } from "../types";
+import { log } from "./log";
 import { forgetCachedPowerLevels, organiserFor } from "./access";
 import { classify, isCommand } from "./classify";
 import { firstContactNotice, handleCommand, handleConfirmation, Reply } from "./commands";
@@ -46,6 +47,7 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
   if (event.type === "m.room.power_levels") {
     await savePowerLevels(event.room_id, event.content);
     forgetCachedPowerLevels(event.room_id);
+    log("  saved the group's admin levels");
     return;
   }
 
@@ -53,6 +55,7 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
     const redacts = event.redacts ?? event.content?.redacts;
     if (!redacts) return;
     await deleteActivityEvent(event.room_id, redacts);
+    log("  a message or reaction was deleted, removed it here too", { deleted: redacts });
 
     // a removed ❌ on the AI notice opts that person back in
     const optedBackIn = await aiOptInByReaction(event.room_id, redacts);
@@ -61,20 +64,38 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
     return;
   }
 
-  if (isCommand(event))
+  if (isCommand(event)) {
+    log("  it's an !engagement command");
     return await handleCommand(event);
+  }
 
-  if (event.type === "m.reaction" && event.prevEvent?.sender === botUserId)
+  if (event.type === "m.reaction" && event.prevEvent?.sender === botUserId) {
+    log("  it's a reaction to one of the bot's messages", { emoji: event.content?.["m.relates_to"]?.key });
     return await handleConfirmation(event);
+  }
 
   const activity = classify(event, botUserId, "live");
-  if (activity && !await isOptedOut(event.room_id, activity.sender))
-    await insertActivity(activity);
+  if (!activity) {
+    log("  not participant activity, ignored", { from_bot: event.sender === botUserId || undefined });
+    return;
+  }
+  if (await isOptedOut(event.room_id, activity.sender)) {
+    log("  sender has opted out, not recorded");
+    return;
+  }
+  await insertActivity(activity);
+  log("  recorded", { kind: activity.kind, format: activity.format ?? undefined, reply: Boolean(activity.target_event_id) || undefined });
 }
 
 async function start() {
   const app = express();
   app.use(express.json());
+
+  // every request that reaches the tool, including the hub's
+  app.use((req, res, next) => {
+    log(`request in: ${req.method} ${req.path}`, { from: req.get("user-agent")?.split(" ")[0] });
+    next();
+  });
   await startDuckDB();
 
   app.get("/", async (req, res) => {
@@ -84,22 +105,41 @@ async function start() {
   })
 
   app.post("/", async (req, res) => {
-    const { event } = req.body;
-    botUserId = req.body.botUserId ?? botUserId;
+    const { event } = req.body ?? {};
+    botUserId = req.body?.botUserId ?? botUserId;
 
-    const isNewRoom = !await getRoom(event.room_id);
-    if (isNewRoom)
-      await insertRoom(event.room_id, Date.now());
+    if (!event?.room_id) {
+      log("POST / arrived without an event, ignored (is the body JSON?)");
+      return res.status(400).send({ success: false, message: "no event" });
+    }
 
-    const reply = await handleEvent(event);
+    log("event arrived from the hub", { type: event.type, msgtype: event.content?.msgtype, room: event.room_id, sender: event.sender, id: event.event_id });
 
-    // the first time the tool hears from a group, it says what it records
-    const replies = (Array.isArray(reply) ? reply : reply ? [reply] : []).map(r => typeof r === "string" ? { message: r } : r);
-    const response = isNewRoom && !isCommand(event)
-      ? [{ message: firstContactNotice() }, ...replies]
-      : Array.isArray(reply) ? replies : reply;
+    try {
+      const isNewRoom = !await getRoom(event.room_id);
+      if (isNewRoom) {
+        await insertRoom(event.room_id, Date.now());
+        log("  first event from this group, will post the welcome message");
+      }
 
-    res.send({ success: true, response });
+      const reply = await handleEvent(event);
+
+      // the first time the tool hears from a group, it says what it records
+      const replies = (Array.isArray(reply) ? reply : reply ? [reply] : []).map(r => typeof r === "string" ? { message: r } : r);
+      const response = isNewRoom && !isCommand(event)
+        ? [{ message: firstContactNotice() }, ...replies]
+        : Array.isArray(reply) ? replies : reply;
+
+      const outgoing = Array.isArray(response) ? response : response ? [response] : [];
+      log(outgoing.length ? `  replying to the hub with ${outgoing.length} message(s)` : "  no reply to send",
+        { private: outgoing.filter(r => typeof r !== "string" && r.recipient).length || undefined });
+
+      res.send({ success: true, response });
+    } catch (err) {
+      log("  FAILED handling the event", { error: err instanceof Error ? err.message : String(err) });
+      console.error(err);
+      res.status(500).send({ success: false, message: "error handling event" });
+    }
   });
 
   // everything under /api is for the group's admins only: the key in their
@@ -109,6 +149,9 @@ async function start() {
     const key = req.get("x-engagement-key") ?? undefined;
 
     const organiser = await organiserFor(roomId, key);
+    if (!organiser) {
+      log("  dashboard request refused: missing or out-of-date link", { room: roomId || undefined });
+    }
     if (!organiser)
       return res.status(401).send({ success: false, message: "This link isn't valid any more. Organisers can get a new one by sending !engagement email your@address in the group." });
 
@@ -205,7 +248,17 @@ async function start() {
     res.send({ success: true });
   })
 
-  app.listen(port);
+  app.listen(port, () => {
+    log(`listening on port ${port}`);
+    log("settings", {
+      tool_url: tool_url || "NOT SET (hub can't reach you)",
+      hub_url: process.env.hub_url || "NOT SET",
+      engagement_secret: engagement_secret ? "set" : "NOT SET",
+      resend: process.env.RESEND_API_KEY ? "set" : "NOT SET (no dashboard emails)",
+      claude: process.env.ANTHROPIC_API_KEY ? "set" : "not set (AI themes off)",
+    });
+    log(`waiting for events. Test it's reachable: open ${tool_url || `http://localhost:${port}`} in a browser`);
+  });
 };
 
 generateRegistrationFile();

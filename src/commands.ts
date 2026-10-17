@@ -1,4 +1,5 @@
 import { MatrixEvent } from "../types";
+import { log } from "./log";
 import { commandArgs } from "./classify";
 import { aiOptIn, aiOptOut, forgetRoom, getActivity, getAiSettings, getRoom, isAiOptedOut, isOptedOut, optIn, optOut } from "./duckdb";
 import { isAdmin, issueKey } from "./access";
@@ -86,6 +87,8 @@ async function describeMe(event: MatrixEvent): Promise<Reply> {
 export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]> {
     const args = commandArgs(event);
     const roomId = event.room_id;
+    // just the command word: "!engagement email ..." would otherwise log the address
+    log("  command", { name: args.split(" ")[0] || "(help)" });
 
     if (args === "me")
         return await describeMe(event);

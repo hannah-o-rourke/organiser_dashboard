@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getEmailForKey, getLatestPowerLevels, getOrganiserForKey, saveOrganiserKey } from "./duckdb";
 import { fetchPowerLevels } from "./hub";
+import { log } from "./log";
 
 // WhatsApp and Signal bridges give group admins a raised Matrix power level
 const adminLevel = Number(process.env.ADMIN_POWER_LEVEL ?? 50);
@@ -21,8 +22,8 @@ async function powerLevels(roomId: string): Promise<PowerLevels | null> {
     if (cached && Date.now() - cached.at < CACHE_FOR)
         return cached.powerLevels;
 
-    const fetched = await fetchPowerLevels(roomId).catch(err => {
-        console.log("couldn't get power levels from the hub", err);
+    const fetched = await fetchPowerLevels(roomId).catch(() => {
+        log("  hub can't say who the group admins are (expected until the hub is patched), using organiser emails");
         return null;
     });
     // "unknown" is cached too, so a hub without the endpoint isn't asked every time

@@ -1,4 +1,5 @@
 import { MatrixEvent } from "../types";
+import { log } from "./log";
 import { isAdmin, newKey } from "./access";
 import { getOrganiserEmails, removeOrganiserEmail, saveOrganiserEmail } from "./duckdb";
 import { canEmail, maskEmail, normaliseEmail, sendDashboardEmail } from "./email";
@@ -23,8 +24,10 @@ async function sendLink(roomId: string, email: string, requestedBy: string) {
     const link = dashboardLink(roomId, key);
     if (!link) throw new Error("hub_url isn't set on this server");
 
+    log("  emailing a dashboard link", { to: maskEmail(email) });
     await sendDashboardEmail(email, link, requestedBy);
     await saveOrganiserEmail(roomId, email, "active", keyHash, requestedBy);
+    log("  email sent", { to: maskEmail(email) });
 }
 
 // `!engagement email name@example.org` in the group. The first organiser is
@@ -53,13 +56,14 @@ export async function requestByChat(event: MatrixEvent, text: string) {
         try {
             await sendLink(roomId, email, name);
         } catch (err) {
-            console.error("dashboard email failed", err);
+            log("  email FAILED", { error: err instanceof Error ? err.message : String(err) });
             return "Sorry, the email couldn't be sent. Please check the address and try again.";
         }
         return `📧 Sent a link to the Engagement dashboard to ${maskEmail(email)}. You can delete your message with the address in it now.`;
     }
 
     await saveOrganiserEmail(roomId, email, "pending", null, name);
+    log("  email request waiting for an organiser to approve", { email: maskEmail(email) });
     return `📧 Asked this group's organisers to approve ${maskEmail(email)}. They'll see the request on the dashboard, and the link will be emailed once they do. You can delete your message with the address in it now.`;
 }
 

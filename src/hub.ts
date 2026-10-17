@@ -1,4 +1,5 @@
 import { MatrixEvent } from "../types";
+import { log } from "./log";
 
 const { hub_url, engagement_secret } = process.env;
 
@@ -44,6 +45,13 @@ export async function sendToGroup(roomId: string, message: string, context?: obj
             ? { event: { type: "m.room.message", msgtype: "m.text", body: message, context: { moduleEvent: true, ...context } } }
             : { message }),
         headers: { "Content-type": "application/json" },
+    }).catch(err => {
+        log("  posting to the group FAILED: couldn't reach the hub", { hub_url, error: err.message });
+        return null;
     });
-    return await response.json() as { success: boolean; message?: string };
+    if (!response) return { success: false, message: "couldn't reach the hub" };
+
+    const result = await response.json().catch(() => ({ success: false, message: `hub replied ${response.status}` })) as { success: boolean; message?: string };
+    log(result.success ? "  posted a message to the group via the hub" : "  posting to the group FAILED", { error: result.success ? undefined : result.message });
+    return result;
 }
