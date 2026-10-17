@@ -1,0 +1,67 @@
+diff --git a/src/matrixClientRequests.ts b/src/matrixClientRequests.ts
+index 8bfd379..65795f2 100644
+--- a/src/matrixClientRequests.ts
++++ b/src/matrixClientRequests.ts
+@@ -127,6 +127,16 @@ export async function fetchEventsSince(
+   }
+ }
+ 
++export async function getPowerLevels(roomId: string) {
++  const res = await fetch(
++    `${homeserver}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/m.room.power_levels`,
++    { headers: { Authorization: `Bearer ${access_token}` } }
++  );
++  if (!res.ok) throw new Error(`Matrix error ${res.status}`);
++
++  return await res.json() as { users?: { [userId: string]: number }; users_default?: number };
++}
++
+ export async function getRoomName(
+   roomId: string
+ ): Promise<string | undefined> {
+diff --git a/src/webserver.ts b/src/webserver.ts
+index fb01623..f915e6d 100644
+--- a/src/webserver.ts
++++ b/src/webserver.ts
+@@ -3,7 +3,7 @@ import proxy from "express-http-proxy";
+ import cors from "cors";
+ import { activateModule, deactivateModule } from "./index";
+ import { getActiveModulesForRoomId } from "./duckdb";
+-import { getRoomEvents, sendMessage, sendEvent, getMediaUrl, getMedia, fetchEventsSince, getRoomName } from "./matrixClientRequests";
++import { getRoomEvents, sendMessage, sendEvent, getMediaUrl, getMedia, fetchEventsSince, getRoomName, getPowerLevels } from "./matrixClientRequests";
+ import { RoomResult } from "../types";
+ 
+ const { userId } = process.env;
+@@ -131,6 +131,32 @@ export default async function startWebServer(modules) {
+         }
+     })
+ 
++    // lets a registered tool check who is an admin in a group, e.g. to limit
++    // a dashboard to admins. WhatsApp and Signal admins are bridged as raised
++    // power levels.
++    app.get("/api/room/power-levels", async (req, res) => {
++        const { roomId, toolId, secret } = req.query;
++
++        const module = modules.find(module => module.id === toolId);
++
++        if (!module || !module.secret || module.secret !== secret) {
++            return res.status(403).send({ success: false, message: "unknown tool or wrong secret" });
++        }
++
++        const activeModules = await getActiveModulesForRoomId(roomId as string);
++        if (!activeModules.find(activeModule => activeModule.module_id === module.id)) {
++            return res.status(403).send({ success: false, message: "module is not active in this room" });
++        }
++
++        try {
++            const powerLevels = await getPowerLevels(roomId as string);
++            res.send({ success: true, users: powerLevels.users ?? {}, users_default: powerLevels.users_default ?? 0 });
++        } catch (err) {
++            console.error("Power levels fetch failed", err);
++            res.status(502).send({ success: false, message: "could not read power levels" });
++        }
++    })
++
+     app.get("/api/content", async (req, res) => {
+         const { mxcUrl } = req.query;
+ 
