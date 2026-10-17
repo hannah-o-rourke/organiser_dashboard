@@ -35,7 +35,8 @@ feel about the group, anything said in person or in other chats, and anything
 before the tool was turned on, unless history is imported.
 
 The people table can be filtered by badge, and *Worth a check-in* shows
-everyone who is quiet this week, gone quiet, not heard from yet, or new: a
+everyone who is quiet this week, gone quiet, quiet for 4+ weeks, not heard
+from yet, or new: a
 starting list for friendly one-to-one hellos.
 
 Patterns on the dashboard are literal descriptions of the rule that produced
@@ -47,6 +48,7 @@ the **Questions to discuss** section, for organisers to explore with people.
 |---|---|
 | Joined recently | joined in the last 14 days |
 | Quiet this week | active in ≥ 2 of the 4 weeks before the last 7 days, nothing in the last 7 days |
+| Quiet for 4+ weeks | has posted or reacted before, but nothing for more than 28 days |
 | Quieter lately | active in ≥ 2 earlier weeks, nothing in the last 14 days |
 | No visible activity | seen joining, never posted or reacted |
 | Mostly reacts | ≥ 3 reactions and at least twice as many reactions as posts |

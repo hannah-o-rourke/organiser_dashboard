@@ -234,3 +234,17 @@ test("someone regular who's been silent for a week is 'quiet this week', not 'go
     assert.deepEqual(pat.patterns.filter(p => p.startsWith("quiet")), ["quiet-this-week"]);
     assert.ok(dashboard.discussion.some(d => d.observation.includes("usually joins in")));
 });
+
+test("nothing for over 4 weeks is 'quiet for 4+ weeks' rather than 'gone quiet'", () => {
+    const rows = [
+        activity({ event_id: "$l1", sender: "@lou:x", ts: NOW - 40 * DAY, kind: "message" }),
+        activity({ event_id: "$l2", sender: "@lou:x", ts: NOW - 33 * DAY, kind: "reaction" }),
+        activity({ event_id: "$a", sender: "@ana:x", ts: NOW - DAY, kind: "message" }),
+    ];
+    const dashboard = computeDashboard(rows, undefined, 0, NOW);
+    const lou = dashboard.participants.find(p => p.id === "@lou:x")!;
+
+    assert.ok(lou.patterns.includes("long-quiet"));
+    assert.ok(!lou.patterns.includes("quieter"));
+    assert.ok(dashboard.discussion.some(d => d.observation.includes("more than 4 weeks")));
+});

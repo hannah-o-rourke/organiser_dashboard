@@ -5,8 +5,10 @@ const WEEK = 7 * DAY;
 // a message counts as starting a conversation if nobody had posted for this long
 const CONVERSATION_GAP = 3 * 60 * 60 * 1000;
 const RECENT = 14 * DAY;
+// longer than this without posting or reacting counts as long-term quiet
+const LONG_QUIET = 28 * DAY;
 
-export type Pattern = "new" | "quiet-this-week" | "quieter" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
+export type Pattern = "new" | "quiet-this-week" | "quieter" | "long-quiet" | "not-seen" | "mostly-reacts" | "starts-conversations" | "draws-responses";
 
 export type ParticipantSummary = {
     id: string;
@@ -193,6 +195,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
 
             if (p.joinedAt !== null && p.joinedAt > now - RECENT) patterns.push("new");
             if (p.lastActive === null) patterns.push("not-seen");
+            else if (p.lastActive < now - LONG_QUIET) patterns.push("long-quiet");
             else if (p.lastActive < now - RECENT && activeBeforeRecent >= 2) patterns.push("quieter");
             else if (p.lastActive < now - WEEK && regularBeforeThisWeek(days, now)) patterns.push("quiet-this-week");
             if (p.reactions >= 3 && p.reactions >= 2 * p.messages) patterns.push("mostly-reacts");
@@ -293,6 +296,15 @@ function discussionPoints(dashboard: Dashboard, now: number, replies: { recent: 
             observation: `${plural(quietWeek, "person", "people")} who usually ${quietWeek === 1 ? "joins" : "join"} in ${has(quietWeek)} posted or reacted this week.`,
             question: "Could be nothing, or could be a busy week. Is it worth a quick, friendly hello?",
             tip: "A short personal message (\"Missed you this week, hope all's well!\") often works better than a group shout-out.",
+        });
+    }
+
+    const longQuiet = count("long-quiet");
+    if (longQuiet) {
+        points.push({
+            observation: `${plural(longQuiet, "person", "people")} ${has(longQuiet)} posted or reacted for more than 4 weeks.`,
+            question: "Would they still like to be in the group? Some people would rather have occasional updates than a busy chat.",
+            tip: "Rather than chasing, try a friendly one-to-one: ask what they'd find useful. An announcements-only group or broadcast list can suit people who just want the key dates.",
         });
     }
 
