@@ -327,6 +327,36 @@ ul.plain li {
   color: var(--text-secondary);
 }
 
+.tip {
+  margin-top: 6px !important;
+  padding-top: 6px;
+  border-top: 1px dashed var(--highlight-border);
+  font-size: 0.93rem;
+}
+
+.tips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tip-card {
+  background: var(--accent-soft);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.tip-card .icon {
+  font-size: 1.4rem;
+  display: block;
+}
+
+.tip-card p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.93rem;
+}
+
 .questions li {
   margin: 6px 0;
 }

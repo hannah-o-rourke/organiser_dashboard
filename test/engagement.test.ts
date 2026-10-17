@@ -198,3 +198,27 @@ test("links shared and replies are counted per person and per week", () => {
     const week = dashboard.weeks.at(-1)!;
     assert.deepEqual([week.messages, week.replies, week.reactions, week.links], [2, 1, 1, 1]);
 });
+
+test("messages nobody responded to are noticed, with a tip", () => {
+    const rows: Activity[] = [];
+    for (let i = 0; i < 6; i++)
+        rows.push(activity({ event_id: `$m${i}`, sender: "@ana:x", ts: NOW - (3 + i) * DAY, kind: "message" }));
+    rows.push(activity({ event_id: "$r", sender: "@ben:x", ts: NOW - 2 * DAY, kind: "reaction", target_event_id: "$m0" }));
+
+    const point = computeDashboard(rows, undefined, 0, NOW).discussion.find(d => d.observation.includes("got no reply or reaction"));
+    assert.ok(point);
+    assert.match(point.observation, /^5 of the 6 messages/);
+    assert.match(point.tip!, /be that person/);
+});
+
+test("a much quieter week than usual is noticed", () => {
+    const rows: Activity[] = [];
+    // five busy weeks, then a near-silent last full week
+    for (let week = 7; week >= 2; week--) {
+        const perWeek = week === 2 ? 1 : 15;
+        for (let i = 0; i < perWeek; i++)
+            rows.push(activity({ event_id: `$w${week}-${i}`, sender: i % 2 ? "@ana:x" : "@ben:x", ts: weekStart(NOW) - (week - 1) * 7 * DAY + DAY + i * 1000, kind: "message" }));
+    }
+    const discussion = computeDashboard(rows, undefined, 0, NOW).discussion;
+    assert.ok(discussion.some(d => d.observation.startsWith("Last week was much quieter")));
+});

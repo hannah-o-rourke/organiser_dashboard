@@ -46,6 +46,8 @@ export type WeekSummary = {
 export type DiscussionPoint = {
     observation: string;
     question: string;
+    // practical advice from the "Getting the most out of WhatsApp groups" session
+    tip?: string;
 };
 
 export type Dashboard = {
@@ -246,13 +248,18 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
         discussion: [],
     };
 
-    dashboard.discussion = discussionPoints(dashboard, now);
+    // messages from the last two weeks that nobody replied or reacted to; the
+    // last day is left out because people may not have had a chance yet
+    const recent = messages.filter(m => m.ts >= now - RECENT && m.ts < now - DAY);
+    const unanswered = recent.filter(m => !responsesTo.has(m.event_id)).length;
+
+    dashboard.discussion = discussionPoints(dashboard, now, { recent: recent.length, unanswered });
     return dashboard;
 }
 
 // Turns patterns into questions for organisers to take to the group. These
 // are prompts for a conversation, never conclusions about a person.
-function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] {
+function discussionPoints(dashboard: Dashboard, now: number, replies: { recent: number; unanswered: number }): DiscussionPoint[] {
     const points: DiscussionPoint[] = [];
     const { participants, concentration, responsesByType, coverage } = dashboard;
     const count = (pattern: Pattern) => participants.filter(p => p.patterns.includes(pattern)).length;
@@ -263,6 +270,7 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `This only covers ${plural(days, "day")}, so it's too early to spot changes.`,
             question: "What does a normal month look like for this group? Check back in a few weeks.",
+            tip: "Routines help a group settle: a weekly round-up, welcoming new people, and sharing the dates of the next actions.",
         });
     }
 
@@ -271,6 +279,7 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `${plural(quieter, "person", "people")} who used to join in most weeks ${has(quieter)} posted or reacted for 2 weeks.`,
             question: "Has something changed for them, like work, shifts or caring, or are they just reading quietly? A friendly one-to-one check-in could help.",
+            tip: "Specific asks work better than general ones. \"Could you help with Saturday's stall?\" gets more replies than \"Can anyone help?\"",
         });
     }
 
@@ -279,6 +288,7 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `${plural(notSeen, "new member")} ${has(notSeen)} posted or reacted yet. (This can't see who's reading.)`,
             question: "Could you give them an easy way in, like a welcome message, a quick poll or a personal invite?",
+            tip: "People like polls. They're the easiest way to join in for the first time.",
         });
     }
 
@@ -286,6 +296,7 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `Just ${plural(concentration.peopleForHalf, "person", "people")} wrote half of all the messages.`,
             question: "Is there room for other voices? Are some conversations happening somewhere else, like in person or in private chats?",
+            tip: "Ask people by name to share how something went, and thank people when they contribute. It shows everyone their voice is welcome.",
         });
     }
 
@@ -294,6 +305,7 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `${plural(reacters, "person", "people")} mostly join in with reactions rather than messages.`,
             question: "Is that how they like to take part, or is something making it harder to post?",
+            tip: "Polls turn a reaction into a contribution, and a quick one-to-one can show whether someone would like to do more.",
         });
     }
 
@@ -306,6 +318,11 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
             points.push({
                 observation: `${best.type} messages get the most replies and reactions: ${best.averageResponses.toFixed(1)} each on average, compared with ${restAverage.toFixed(1)} for other messages.`,
                 question: `Could more ${best.type.toLowerCase()} messages help get people involved?`,
+                tip: best.type === "Photo or video"
+                    ? "Create a bit of FOMO: photos from the doors, the stall, or the pub afterwards get people wanting to come next time."
+                    : best.type === "Link"
+                        ? "Keep sharing interesting things that fit the group's purpose: articles, events, the odd meme."
+                        : "Ending a message with a clear question gives people an easy reason to reply.",
             });
         }
     }
@@ -315,7 +332,31 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         points.push({
             observation: `${plural(newcomers, "person", "people")} joined in the last 2 weeks.`,
             question: "Have they been welcomed? Do they know what the group is for and how to get involved?",
+            tip: "Welcome people by name 👋 and ask what brought them here. A pinned post or group description with the next action helps too.",
         });
+    }
+
+    if (replies.recent >= 5 && replies.unanswered >= 3 && replies.unanswered / replies.recent >= 0.3) {
+        points.push({
+            observation: `${replies.unanswered} of the ${replies.recent} messages in the last 2 weeks got no reply or reaction.`,
+            question: "Were any of them questions or offers of help that got missed?",
+            tip: "If no one has responded to someone, be that person! Even a quick 👍 tells people they've been heard.",
+        });
+    }
+
+    // the last full week against the weeks before it
+    const full = dashboard.weeks.slice(1, -1);
+    if (full.length >= 4) {
+        const busy = (w: WeekSummary) => w.messages + w.reactions;
+        const last = full[full.length - 1];
+        const before = full.slice(0, -1).reduce((sum, w) => sum + busy(w), 0) / (full.length - 1);
+        if (before >= 10 && busy(last) < before * 0.4) {
+            points.push({
+                observation: `Last week was much quieter than usual: ${busy(last)} messages and reactions, against about ${Math.round(before)} in a normal week.`,
+                question: "Was it a quiet week for a reason, like holidays or no actions planned, or has the group lost some energy?",
+                tip: "Avoid tumbleweed: post a specific ask, a poll, or photos from the last action, and share what's coming up next.",
+            });
+        }
     }
 
     return points;

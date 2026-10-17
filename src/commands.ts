@@ -76,7 +76,7 @@ async function describeMe(event: MatrixEvent): Promise<Reply> {
     const me = dashboard.participants.find(p => p.id === event.sender);
 
     const summary = me
-        ? `Since ${day(dashboard.coverage.from)}: ${count(me.messages, "message")} (${me.replies} of them replies), ${count(me.reactions, "reaction")}, and ${me.responsesReceived} replies or reactions from others. Last active ${day(me.lastActive)}.`
+        ? `Since ${day(dashboard.coverage.from)}: ${count(me.messages, "message")} (${me.replies} of them replies), ${count(me.reactions, "reaction")}, ${count(me.links, "link")} shared, and ${me.responsesReceived} replies or reactions from others. Last active ${day(me.lastActive)}.`
         : "Nothing recorded yet.";
 
     return `📊 What the Engagement tool holds about ${name}: ${summary}\n\n${await aiStatus(event)}\n\nIt never stores what anyone writes. Send !engagement optout to delete this and stop tracking.`;
