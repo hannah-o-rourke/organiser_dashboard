@@ -104,7 +104,7 @@ test("members with no visible activity are listed rather than dropped", () => {
     const rae = dashboard.participants.find(p => p.id === "@rae:x")!;
 
     assert.deepEqual(rae.patterns, ["new", "not-seen"]);
-    assert.ok(dashboard.discussion.some(d => d.observation.includes("Reading isn't visible")));
+    assert.ok(dashboard.discussion.some(d => d.observation.includes("can't see who's reading")));
 });
 
 test("responses are credited to the author, resolving reply targets by event id", () => {
@@ -181,4 +181,20 @@ test("a chosen period drops older activity but keeps who's a member", () => {
     assert.ok(dashboard.participants.some(p => p.id === "@rae:x" && p.patterns.includes("not-seen")));
     assert.equal(dashboard.coverage.from, NOW - 7 * DAY);
     assert.equal(dashboard.weeks.reduce((s, w) => s + w.newParticipants, 0), 0);
+});
+
+test("links shared and replies are counted per person and per week", () => {
+    const rows = [
+        activity({ event_id: "$a", sender: "@ana:x", ts: NOW - DAY, kind: "message", has_link: true }),
+        activity({ event_id: "$b", sender: "@ben:x", ts: NOW - DAY, kind: "message", target_event_id: "$a" }),
+        activity({ event_id: "$c", sender: "@ben:x", ts: NOW - DAY, kind: "reaction", target_event_id: "$a" }),
+    ];
+    const dashboard = computeDashboard(rows, undefined, 0, NOW);
+    const ana = dashboard.participants.find(p => p.id === "@ana:x")!;
+    const ben = dashboard.participants.find(p => p.id === "@ben:x")!;
+
+    assert.equal(ana.links, 1);
+    assert.equal(ben.replies, 1);
+    const week = dashboard.weeks.at(-1)!;
+    assert.deepEqual([week.messages, week.replies, week.reactions, week.links], [2, 1, 1, 1]);
 });

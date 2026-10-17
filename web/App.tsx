@@ -1,6 +1,6 @@
 import "./App.css";
 import { useSearchParams } from "react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Dashboard, ParticipantSummary, Pattern, WeekSummary } from "../src/metrics";
 import type { Theme } from "../src/themes";
 import { addOrganiser, findThemes, forgetGroup, getDashboard, getOrganisers, getThemes, importHistory, NotAllowed, removeOrganiser, switchAi } from "./requests";
@@ -49,7 +49,7 @@ function Organisers({ roomId }: { roomId: string }) {
   async function grant(email: string) {
     setStatus(`Emailing ${email}…`);
     const result = await addOrganiser(roomId, email).catch(err => ({ success: false, message: err.message }));
-    setStatus(result.success ? `Sent a dashboard link to ${email}. The group has been told.` : result.message);
+    setStatus(result.success ? `✅ Sent a dashboard link to ${email}. The group has been told.` : result.message);
     setNewEmail("");
     load();
   }
@@ -62,7 +62,7 @@ function Organisers({ roomId }: { roomId: string }) {
   }
 
   async function forget() {
-    if (!confirm("Delete everything the Engagement tool holds for this group: activity, themes and settings? Organisers keep their access. This can't be undone, and the group will be told.")) return;
+    if (!confirm("Delete everything the dashboard has recorded for this group? This can't be undone, and the group will be told.")) return;
     await forgetGroup(roomId).catch(() => null);
     window.location.reload();
   }
@@ -76,11 +76,11 @@ function Organisers({ roomId }: { roomId: string }) {
     <>
       {pending.length > 0 && (
         <>
-          <h3>Waiting for approval</h3>
+          <h3>⏳ Waiting for you to approve</h3>
           <ul className="organisers">
             {pending.map(o => (
               <li key={o.email}>
-                <span><strong>{o.email}</strong> <small>asked for by {o.requestedBy} on {day(o.createdAt)}</small></span>
+                <span><strong>{o.email}</strong> <small>asked by {o.requestedBy} on {day(o.createdAt)}</small></span>
                 <span className="actions">
                   <button onClick={() => grant(o.email)}>Approve</button>
                   <button className="secondary" onClick={() => remove(o.email, true)}>Decline</button>
@@ -90,7 +90,7 @@ function Organisers({ roomId }: { roomId: string }) {
           </ul>
         </>
       )}
-      <h3>Organisers with access</h3>
+      <h3>🔑 Organisers who can see this</h3>
       <ul className="organisers">
         {active.map(o => (
           <li key={o.email}>
@@ -98,16 +98,16 @@ function Organisers({ roomId }: { roomId: string }) {
             <span className="actions"><button className="secondary" onClick={() => remove(o.email, false)}>Remove</button></span>
           </li>
         ))}
-        {active.length === 0 && <li className="note">Only group admins with a chat link.</li>}
+        {active.length === 0 && <li className="note">No one yet.</li>}
       </ul>
       <form className="import" onSubmit={e => { e.preventDefault(); grant(newEmail); }}>
         <input type="email" required placeholder="name@example.org" value={newEmail} onChange={e => setNewEmail(e.target.value)} aria-label="Organiser's email" />
-        <button type="submit">Send dashboard link</button>
+        <button type="submit">Invite organiser</button>
       </form>
       {status && <p className="note">{status}</p>}
       <details>
-        <summary>Delete this group's data</summary>
-        <p className="note">Deletes every recorded post, reaction and join, the theme summaries and the settings. Everyone's opt-outs are kept.</p>
+        <summary>🗑️ Delete this group's data</summary>
+        <p className="note">Wipes everything the dashboard has recorded for this group and starts again. Organisers keep access, and anyone who opted out stays opted out.</p>
         <button className="danger" onClick={forget}>Delete everything</button>
       </details>
     </>
@@ -128,12 +128,12 @@ function Themes({ roomId }: { roomId: string }) {
   }, []);
 
   async function run() {
-    if (!confirm(`Find the main themes for ${monthName(month)}? That month's messages will be sent, without names, to Anthropic's Claude, leaving out anyone who opted out. Only the summary is kept, and the tool will post a message in the group to say so.`)) return;
+    if (!confirm(`Summarise what people talked about in ${monthName(month)}? Messages are sent to Claude (an AI) without names, leaving out anyone who opted out. Only the summary is kept, and the group will be told.`)) return;
 
-    setStatus("Reading the month's messages…");
+    setStatus("🧠 Reading the month's messages… this can take a minute.");
     const response = await findThemes(roomId, month).catch(err => ({ success: false, message: err.message }));
     setStatus(response.success
-      ? `Summarised ${response.messageCount} messages.${response.announced ? " The group has been told." : ` Couldn't post the announcement (${response.announcementError}), so please let the group know yourself.`}`
+      ? `✅ Summarised ${response.messageCount} messages.${response.announced ? " The group has been told." : ` Couldn't post a message to the group (${response.announcementError}), so please let them know yourself.`}`
       : response.message);
     load();
   }
@@ -141,11 +141,11 @@ function Themes({ roomId }: { roomId: string }) {
   async function toggle() {
     if (!result) return;
     const turningOn = !result.enabled;
-    if (turningOn && !confirm("Switch on AI theme summaries? The tool will post a message in the group explaining them. Anyone who reacts ❌ to it has their messages left out, and anyone who doesn't is treated as happy to be included. No summary can run until people have had time to reply.")) return;
-    if (!turningOn && !confirm("Switch off AI theme summaries? The tool will tell the group. Summaries you've already made stay here.")) return;
+    if (turningOn && !confirm("Turn on AI summaries? A message will go to the group explaining them. Anyone who reacts ❌ to it is left out. Everyone gets time to reply before the first summary.")) return;
+    if (!turningOn && !confirm("Turn off AI summaries? The group will be told. Summaries you've already made stay here.")) return;
 
     const response = await switchAi(roomId, turningOn).catch(err => ({ success: false, message: err.message }));
-    setStatus(response.success ? (turningOn ? "Switched on. The opt-out message has been posted in the group." : "Switched off. The group has been told.") : response.message);
+    setStatus(response.success ? (turningOn ? "✅ Turned on. A message has gone to the group so people can opt out." : "Turned off. The group has been told.") : response.message);
     load();
   }
 
@@ -156,40 +156,40 @@ function Themes({ roomId }: { roomId: string }) {
   return (
     <>
       <p className="note">
-        Topics, not people: the summary never says who raised what. Messages are sent to Claude without names only when an admin asks, and only the summary is kept.
+        An AI reads the group's messages and pulls out the main topics. It's about topics, never people: no names are sent, and it never says who said what.
       </p>
-      {!result.canFindThemes && <p className="note">AI theme summaries aren't set up on this server.</p>}
+      {!result.canFindThemes && <p className="note">AI summaries aren't set up on this server yet.</p>}
       {result.canFindThemes && (
         <div className="switch-row">
           <label className="switch">
             <input type="checkbox" role="switch" checked={result.enabled} onChange={toggle} />
-            <span>AI theme summaries are <strong>{result.enabled ? "on" : "off"}</strong></span>
+            <span>AI summaries are <strong>{result.enabled ? "on" : "off"}</strong></span>
           </label>
-          {result.enabled && <span className="note">{result.aiOptOuts} {result.aiOptOuts === 1 ? "person has" : "people have"} opted out</span>}
+          {result.enabled && <span className="pill">❌ {result.aiOptOuts} {result.aiOptOuts === 1 ? "person" : "people"} opted out</span>}
         </div>
       )}
       {result.canFindThemes && !result.enabled && (
-        <p className="note">Switching on posts a message in the group. Anyone can react ❌ to it to keep their messages out of summaries.</p>
+        <p className="note">Turning this on sends a message to the group. Anyone who doesn't want to be included can react ❌.</p>
       )}
       {result.enabled && !ready && result.availableFrom && (
-        <p className="note">To give people time to opt out, the first summary can run from {new Date(result.availableFrom).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}.</p>
+        <p className="note">⏳ Giving people time to opt out. You can make your first summary from <strong>{new Date(result.availableFrom).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</strong>.</p>
       )}
       {ready && (
         <div className="import">
           <select value={month} onChange={e => setMonth(e.target.value)}>
             {[0, -1, -2].map(offset => <option key={offset} value={monthKey(offset)}>{monthName(monthKey(offset))}</option>)}
           </select>
-          <button onClick={run}>Find themes</button>
+          <button onClick={run}>✨ Summarise</button>
         </div>
       )}
       {status && <p className="note">{status}</p>}
       {result.months.map(entry => (
         <div key={entry.month} className="themes-month">
-          <h3>{monthName(entry.month)} <small>from {entry.messageCount} messages, summarised {day(entry.generatedAt)}</small></h3>
+          <h3>{monthName(entry.month)} <small>{entry.messageCount} messages · updated {day(entry.generatedAt)}</small></h3>
           <ul className="themes">
             {entry.themes.map(theme => (
               <li key={theme.title}>
-                <span className={`prominence ${theme.prominence}`}>{theme.prominence}</span>
+                <span className={`prominence ${theme.prominence}`}>{({ major: "Big topic", moderate: "Came up a lot", minor: "Mentioned" } as const)[theme.prominence]}</span>
                 <strong>{theme.title}</strong>
                 <p>{theme.summary}</p>
               </li>
@@ -202,28 +202,33 @@ function Themes({ roomId }: { roomId: string }) {
 }
 
 const patternInfo: { [pattern in Pattern]: { label: string; detail: string } } = {
-  "new": { label: "Joined recently", detail: "Joined the group in the last two weeks." },
-  "quieter": { label: "Quieter lately", detail: "Posted or reacted in at least two earlier weeks, but not in the last two weeks." },
-  "not-seen": { label: "No visible activity", detail: "Hasn't posted or reacted while tracked. They may well be reading, which this tool can't see." },
-  "mostly-reacts": { label: "Mostly reacts", detail: "Reacts at least twice as often as they post." },
-  "starts-conversations": { label: "Starts conversations", detail: "Often the first to post after three or more quiet hours." },
-  "draws-responses": { label: "Draws responses", detail: "Their messages get at least 1.5× the group's average replies and reactions." },
+  "new": { label: "👋 New", detail: "Joined in the last 2 weeks." },
+  "quieter": { label: "🌙 Gone quiet", detail: "Used to join in most weeks, but nothing for 2 weeks." },
+  "not-seen": { label: "👀 Not heard from yet", detail: "Hasn't posted or reacted yet. They may still be reading." },
+  "mostly-reacts": { label: "👍 Mostly reacts", detail: "Joins in with reactions more than messages." },
+  "starts-conversations": { label: "🚀 Gets things going", detail: "Often the first to post after a quiet spell." },
+  "draws-responses": { label: "🔥 Gets people talking", detail: "Their messages get lots of replies and reactions." },
+};
+
+const typeEmoji: { [type: string]: string } = {
+  "Question": "❓", "Link": "🔗", "Photo or video": "📷", "Voice note": "🎤",
+  "Long message": "📝", "Short message": "💬", "Other": "📎",
 };
 
 const notCaptured = [
-  "Reading. Someone who reads every message but never posts looks the same as someone who has muted the group.",
-  "What people write. Message text is never stored, only whether it had a link or question mark and roughly how long it was.",
-  "Anything outside this chat, like meetings, DMs, other groups, or doing the actual work.",
-  "Anything before the tool was switched on, unless an organiser imported earlier history.",
-  "People who opted out. They're left out of every number here.",
+  "👀 Who's reading. Someone who reads everything but never posts looks the same as someone who's muted the group.",
+  "✍️ What people write. Messages themselves are never stored, just when they were sent.",
+  "🤝 Anything outside this chat: meetings, doorstep chats, private messages, or the actual work people do.",
+  "⏮️ Anything from before the dashboard was turned on (unless you import it below).",
+  "🙅 Anyone who opted out. They're left out of every number.",
 ];
 
-const participantQuestions = [
-  "What makes it easy or hard for you to post in this group?",
-  "Is there a time of day or kind of message that works best for you?",
-  "Would you rather take part in a different way, like reactions, polls, or one-to-one?",
-  "How did it feel when you first joined? Did you know what the group was for?",
-  "Is the group the right size and pace for you?",
+const memberQuestions = [
+  "What makes it easy or hard to post in this group?",
+  "Is there a time of day that works best for you?",
+  "Would you rather get involved another way, like a poll, a call or a chat in person?",
+  "When you joined, did you know what the group was for?",
+  "Is the group too busy, too quiet, or about right?",
 ];
 
 function day(ts: number | null) {
@@ -287,7 +292,7 @@ function WeeklyChart({ weeks, onTip }: { weeks: WeekSummary[]; onTip: (tip: Tip)
           const x = i * (barWidth + gap) + gap / 2;
           const messageHeight = scale(week.messages);
           const reactionHeight = scale(week.reactions);
-          const tip = `Week of ${day(week.weekStart)}: ${week.messages} messages, ${week.reactions} reactions, ${week.activeParticipants} people active${week.newParticipants ? `, ${week.newParticipants} joined` : ""}`;
+          const tip = `Week of ${day(week.weekStart)}: ${week.messages} messages, ${week.reactions} reactions, ${week.activeParticipants} people joined in${week.newParticipants ? `, ${week.newParticipants} new` : ""}`;
           return (
             <g key={week.weekStart}
               onMouseMove={e => onTip({ x: e.clientX, y: e.clientY, text: tip })}
@@ -310,7 +315,7 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
   // anonymous labels follow join order, so they don't change when sorting
   const labels = useMemo(() => {
     const byFirstSeen = [...participants].sort((a, b) => a.firstSeen - b.firstSeen);
-    return new Map(byFirstSeen.map((p, i) => [p.id, `Participant ${i + 1}`]));
+    return new Map(byFirstSeen.map((p, i) => [p.id, `Member ${i + 1}`]));
   }, [participants]);
 
   const sorted = [...participants].sort((a, b) => {
@@ -319,12 +324,12 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
   });
 
   const columns: [keyof ParticipantSummary, string][] = [
-    ["messages", "Posts"],
-    ["replies", "Replies"],
-    ["reactions", "Reactions"],
-    ["conversationsStarted", "Started"],
-    ["responsesReceived", "Responses got"],
-    ["lastActive", "Last active"],
+    ["messages", "💬 Messages"],
+    ["replies", "↩️ Replies"],
+    ["reactions", "👍 Reactions"],
+    ["links", "🔗 Links"],
+    ["responsesReceived", "🔥 Responses"],
+    ["lastActive", "🕒 Last seen"],
   ];
 
   return (
@@ -332,25 +337,33 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
       <table className="people">
         <thead>
           <tr>
-            <th><button className="sort" onClick={() => setSortKey("name")}>Person</button></th>
-            <th>Weekly activity</th>
+            <th><button className="sort" onClick={() => setSortKey("name")}>Name</button></th>
+            <th>Each week</th>
             {columns.map(([key, label]) => (
               <th key={key} className="num">
                 <button className={`sort ${sortKey === key ? "active" : ""}`} onClick={() => setSortKey(key)}>{label}</button>
               </th>
             ))}
-            <th>Patterns</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map(person => (
             <tr key={person.id}>
-              <td className="name">{hideNames ? labels.get(person.id) : person.name}</td>
+              <td className="name">
+                {hideNames ? labels.get(person.id) : person.name}
+                {person.patterns.length > 0 && (
+                  <div className="badges">
+                    {person.patterns.map(pattern => (
+                      <span key={pattern} className={`chip chip-${pattern}`} title={patternInfo[pattern].detail}>{patternInfo[pattern].label}</span>
+                    ))}
+                  </div>
+                )}
+              </td>
               <td>
                 <div className="heat" style={{ gridTemplateColumns: `repeat(${person.weekly.length}, 12px)` }}>
                   {person.weekly.map((count, i) => (
                     <span key={i} className={`cell step-${heatStep(count)}`}
-                      onMouseMove={e => onTip({ x: e.clientX, y: e.clientY, text: `Week of ${day(weeks[i]?.weekStart)}: ${count} posts and reactions` })}
+                      onMouseMove={e => onTip({ x: e.clientX, y: e.clientY, text: `Week of ${day(weeks[i]?.weekStart)}: ${count} messages and reactions` })}
                       onMouseLeave={() => onTip(null)} />
                   ))}
                 </div>
@@ -358,14 +371,9 @@ function Participants({ participants, weeks, hideNames, onTip }: { participants:
               <td className="num">{person.messages}</td>
               <td className="num">{person.replies}</td>
               <td className="num">{person.reactions}</td>
-              <td className="num">{person.conversationsStarted}</td>
+              <td className="num">{person.links}</td>
               <td className="num">{person.responsesReceived}</td>
               <td className="num">{daysAgo(person.lastActive)}</td>
-              <td className="patterns">
-                {person.patterns.map(pattern => (
-                  <span key={pattern} className="chip" title={patternInfo[pattern].detail}>{patternInfo[pattern].label}</span>
-                ))}
-              </td>
             </tr>
           ))}
         </tbody>
@@ -389,7 +397,7 @@ export default function App() {
     try {
       setDashboard(await getDashboard(roomId, period));
     } catch (err) {
-      setError(err instanceof NotAllowed ? err.message : "Couldn't load the dashboard. Is the Engagement tool running?");
+      setError(err instanceof NotAllowed ? err.message : "Couldn't load the dashboard. Is the tool running?");
     }
   }
 
@@ -416,38 +424,34 @@ export default function App() {
 
   async function runImport() {
     if (!roomId) return;
-    if (!confirm(`Import the last ${importDays} days of this group's activity? The tool will post a message in the group to say so.`)) return;
+    if (!confirm(`Add the last ${importDays} days of messages? The group will be told.`)) return;
 
-    setImportStatus("Importing…");
+    setImportStatus("Adding…");
     const result = await importHistory(roomId, importDays).catch(err => ({ success: false, message: err.message }));
     setImportStatus(result.success
-      ? `Imported ${result.imported} events.${result.announced ? " The group has been told." : ` Couldn't post the announcement (${result.announcementError}), so please let the group know yourself.`}`
-      : `Import failed: ${result.message}`);
+      ? `✅ Added ${result.imported} messages, reactions and joins.${result.announced ? " The group has been told." : ` Couldn't post a message to the group (${result.announcementError}), so please let them know yourself.`}`
+      : `Something went wrong: ${result.message}`);
     loadDashboard(roomId);
   }
 
   if (!roomId)
-    return <main><h1>Engagement</h1><p>Organisers can get a link to this page by sending <code>!engagement email your@address</code> in the group.</p></main>;
+    return <main><Banner /><p className="empty">Organisers can get a link to this page by sending <code>!engagement email your@address</code> in the group.</p></main>;
 
   if (error)
-    return <main><h1>Engagement</h1><p>{error}</p></main>;
+    return <main><Banner /><p className="empty">{error}</p></main>;
 
   if (!dashboard)
-    return <main><h1>Engagement</h1><p>Loading…</p></main>;
+    return <main><Banner /><p className="empty">Loading…</p></main>;
 
   const { coverage, weeks, participants, concentration, responsesByType, discussion } = dashboard;
   const maxResponses = Math.max(0.1, ...responsesByType.map(r => r.averageResponses));
   const coverageDays = Math.max(1, Math.round((coverage.to - coverage.from) / 86400000));
+  const total = (key: "messages" | "replies" | "reactions" | "links" | "newParticipants") => weeks.reduce((sum, w) => sum + w[key], 0);
+  const joinedIn = participants.filter(p => p.messages + p.reactions > 0).length;
 
   return (
     <main>
-      <header>
-        <h1>📊 Engagement</h1>
-        <p className="lede">
-          How participation in this group has changed over time. It's a starting point for conversations with the group, not a judgement of anyone.
-          Only the group's organisers can see this page. Everyone can see what's held about themselves with <code>!engagement me</code>, and opt out with <code>!engagement optout</code>.
-          Your link is personal, so please don't share it.
-        </p>
+      <Banner>
         <div className="controls">
           <label className="period">
             Showing
@@ -456,57 +460,56 @@ export default function App() {
             </select>
           </label>
           <label className="toggle">
-            <input type="checkbox" checked={hideNames} onChange={toggleNames} /> Hide names (for screen sharing)
+            <input type="checkbox" checked={hideNames} onChange={toggleNames} /> Hide names
           </label>
         </div>
-      </header>
+      </Banner>
 
       <section>
-        <h2>What this covers</h2>
+        <h2>✨ At a glance</h2>
         <div className="tiles">
-          <div className="tile"><span className="value">{coverageDays}</span><span className="label">days, from {day(coverage.from)}</span></div>
-          <div className="tile"><span className="value">{coverage.participants}</span><span className="label">people seen</span></div>
-          <div className="tile"><span className="value">{coverage.liveEvents + coverage.importedEvents}</span><span className="label">posts, reactions and joins{coverage.importedEvents ? ` (${coverage.importedEvents} imported)` : ""}</span></div>
-          <div className="tile"><span className="value">{coverage.optedOut}</span><span className="label">opted out</span></div>
+          <div className="tile tile-people"><span className="icon">🙋</span><span className="value">{joinedIn}</span><span className="label">{joinedIn === 1 ? "person joined in" : "people joined in"}</span></div>
+          <div className="tile tile-messages"><span className="icon">💬</span><span className="value">{total("messages")}</span><span className="label">messages</span></div>
+          <div className="tile tile-replies"><span className="icon">↩️</span><span className="value">{total("replies")}</span><span className="label">replies</span></div>
+          <div className="tile tile-reactions"><span className="icon">👍</span><span className="value">{total("reactions")}</span><span className="label">reactions</span></div>
+          <div className="tile tile-links"><span className="icon">🔗</span><span className="value">{total("links")}</span><span className="label">links shared</span></div>
+          <div className="tile tile-new"><span className="icon">👋</span><span className="value">{total("newParticipants")}</span><span className="label">new members</span></div>
         </div>
         <p className="note">
-          Recording since {day(coverage.trackingSince)}{coverage.importedFrom ? `, with earlier history imported back to ${day(coverage.importedFrom)}` : ""}.
-          Members who joined before then only appear once they post or react.
+          Over {coverageDays === 1 ? "the last day" : `${coverageDays} days`}, since {day(coverage.from)}.
+          {coverage.optedOut > 0 && ` ${coverage.optedOut} ${coverage.optedOut === 1 ? "person has" : "people have"} opted out and ${coverage.optedOut === 1 ? "isn't" : "aren't"} counted.`}
         </p>
-        <details>
-          <summary>What this can't see</summary>
-          <ul>{notCaptured.map(item => <li key={item}>{item}</li>)}</ul>
-        </details>
-        {dashboard.canImportHistory && (
-          <details>
-            <summary>Import earlier history</summary>
-            <p className="note">
-              This adds messages sent before the tool was switched on. People weren't told about tracking when they sent them, so the tool posts a notice in the group when you import.
-            </p>
-            <div className="import">
-              <label>Last <input type="number" min={1} max={365} value={importDays} onChange={e => setImportDays(Number(e.target.value))} /> days</label>
-              <button onClick={runImport}>Import</button>
-            </div>
-            {importStatus && <p className="note">{importStatus}</p>}
-          </details>
-        )}
+      </section>
+
+      <section className="highlight">
+        <h2>💡 Things to think about</h2>
+        {discussion.length ? (
+          <ul className="discussion">
+            {discussion.map(point => (
+              <li key={point.question}>
+                <p className="observed">{point.observation}</p>
+                <p className="ask"><strong>Try asking:</strong> {point.question}</p>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="note">Nothing stands out yet. Check back once there are a few weeks of chat.</p>}
       </section>
 
       <section>
-        <h2>Activity per week</h2>
+        <h2>📈 How busy has the group been?</h2>
         <div className="legend">
-          <span><i className="swatch series-1" /> Posts</span>
+          <span><i className="swatch series-1" /> Messages</span>
           <span><i className="swatch series-2" /> Reactions</span>
         </div>
         <WeeklyChart weeks={weeks} onTip={setTip} />
         <details>
-          <summary>As a table</summary>
+          <summary>Show as a table</summary>
           <div className="table-scroll">
             <table>
-              <thead><tr><th>Week of</th><th className="num">Posts</th><th className="num">Reactions</th><th className="num">People active</th><th className="num">Joined</th></tr></thead>
+              <thead><tr><th>Week of</th><th className="num">Messages</th><th className="num">Replies</th><th className="num">Reactions</th><th className="num">Links</th><th className="num">People</th><th className="num">New</th></tr></thead>
               <tbody>
                 {weeks.map(w => (
-                  <tr key={w.weekStart}><td>{day(w.weekStart)}</td><td className="num">{w.messages}</td><td className="num">{w.reactions}</td><td className="num">{w.activeParticipants}</td><td className="num">{w.newParticipants}</td></tr>
+                  <tr key={w.weekStart}><td>{day(w.weekStart)}</td><td className="num">{w.messages}</td><td className="num">{w.replies}</td><td className="num">{w.reactions}</td><td className="num">{w.links}</td><td className="num">{w.activeParticipants}</td><td className="num">{w.newParticipants}</td></tr>
                 ))}
               </tbody>
             </table>
@@ -515,68 +518,86 @@ export default function App() {
       </section>
 
       <section>
-        <h2>People</h2>
+        <h2>🙋 Who's taking part?</h2>
         <p className="note">
-          Patterns describe what's visible in the chat and nothing more. Hover over one to see the rule behind it.
-          {concentration.posters >= 2 && ` ${concentration.peopleForHalf} of ${concentration.posters} people who posted wrote half of all posts.`}
+          The badges are just what shows up in the chat, not a judgement. Tap or hover over one to see what it means. "Responses" is how many replies and reactions someone's messages got from others.
+          {concentration.posters >= 2 && ` ${concentration.peopleForHalf} of the ${concentration.posters} people who posted wrote half of the messages.`}
         </p>
         {participants.length
           ? <Participants participants={participants} weeks={weeks} hideNames={hideNames} onTip={setTip} />
-          : <p>No activity recorded yet.</p>}
+          : <p className="empty">No one's posted yet. Say hi in the group! 👋</p>}
         <div className="legend heat-legend">
-          <span>Fewer</span>
+          <span>Quiet week</span>
           {[1, 2, 3, 4].map(step => <i key={step} className={`cell step-${step}`} />)}
-          <span>More posts and reactions per week</span>
+          <span>Busy week</span>
         </div>
       </section>
 
       <section>
-        <h2>What gets a response</h2>
+        <h2>🗣️ What gets people talking?</h2>
         <p className="note">
-          The average number of replies and reactions from other people, by kind of message. Who sends a message and when matters too, so read these as hints.
+          How many replies and reactions each kind of message gets, on average. Who sends it and when matters too, so treat these as hints.
         </p>
         {responsesByType.length ? (
           <div className="bars">
             {responsesByType.map(r => (
               <div className="bar-row" key={r.type}
-                onMouseMove={e => setTip({ x: e.clientX, y: e.clientY, text: `${r.type}: ${r.messages} messages, ${Math.round(r.shareWithResponse * 100)}% got at least one response` })}
+                onMouseMove={e => setTip({ x: e.clientX, y: e.clientY, text: `${r.type}: ${r.messages} messages, ${Math.round(r.shareWithResponse * 100)}% got at least one reply or reaction` })}
                 onMouseLeave={() => setTip(null)}>
-                <span className="bar-label">{r.type}</span>
+                <span className="bar-label">{typeEmoji[r.type] ?? "💬"} {r.type}</span>
                 <span className="bar-track"><span className="bar series-1" style={{ width: `${(r.averageResponses / maxResponses) * 100}%` }} /></span>
-                <span className="bar-value">{r.averageResponses.toFixed(1)} <small>({r.messages} msgs)</small></span>
+                <span className="bar-value">{r.averageResponses.toFixed(1)} <small>({r.messages} sent)</small></span>
               </div>
             ))}
           </div>
-        ) : <p>No messages recorded yet.</p>}
+        ) : <p className="empty">No messages yet.</p>}
       </section>
 
       <section>
-        <h2>Main themes</h2>
+        <h2>🧠 What did people talk about?</h2>
         <Themes roomId={roomId} />
       </section>
 
       <section>
-        <h2>Organisers and data</h2>
-        <Organisers roomId={roomId} />
+        <h2>❓ Questions to ask your members</h2>
+        <p className="note">Numbers only tell you so much. These are good conversation starters:</p>
+        <ul className="questions">{memberQuestions.map(q => <li key={q}>{q}</li>)}</ul>
       </section>
 
-      <section>
-        <h2>Questions to discuss</h2>
-        {discussion.length ? (
-          <ul className="discussion">
-            {discussion.map(point => (
-              <li key={point.question}>
-                <p className="observed"><strong>Observed:</strong> {point.observation}</p>
-                <p><strong>Ask:</strong> {point.question}</p>
-              </li>
-            ))}
-          </ul>
-        ) : <p className="note">Nothing stands out yet. Come back once there's a few weeks of activity.</p>}
-        <h3>Questions to ask participants</h3>
-        <ul>{participantQuestions.map(q => <li key={q}>{q}</li>)}</ul>
+      <section className="settings">
+        <h2>⚙️ Settings & privacy</h2>
+        <p className="note">🔒 Only organisers can see this page. Please don't share your link. Members can check what's recorded about them by sending <code>!engagement me</code>, or opt out with <code>!engagement optout</code>.</p>
+        <details>
+          <summary>What this dashboard can't see</summary>
+          <ul className="plain">{notCaptured.map(item => <li key={item}>{item}</li>)}</ul>
+        </details>
+        {dashboard.canImportHistory && (
+          <details>
+            <summary>Add older messages</summary>
+            <p className="note">
+              Adds messages from before the dashboard was turned on. People didn't know about the dashboard then, so the group will be told.
+            </p>
+            <div className="import">
+              <label>Last <input type="number" min={1} max={365} value={importDays} onChange={e => setImportDays(Number(e.target.value))} /> days</label>
+              <button onClick={runImport}>Add them</button>
+            </div>
+            {importStatus && <p className="note">{importStatus}</p>}
+          </details>
+        )}
+        <Organisers roomId={roomId} />
       </section>
 
       {tip && <div className="tooltip" style={{ left: tip.x + 12, top: tip.y + 12 }}>{tip.text}</div>}
     </main>
+  );
+}
+
+function Banner({ children }: { children?: ReactNode }) {
+  return (
+    <header className="banner">
+      <h1>📊 Engagement Dashboard</h1>
+      <p className="lede">See who's joining in, who's gone quiet, and what gets people talking. Use it to start conversations, not to judge anyone.</p>
+      {children}
+    </header>
   );
 }

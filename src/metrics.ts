@@ -17,6 +17,7 @@ export type ParticipantSummary = {
     messages: number;
     reactions: number;
     replies: number;
+    links: number;
     conversationsStarted: number;
     responsesReceived: number;
     activeDays: number;
@@ -34,7 +35,9 @@ export type ResponseByType = {
 export type WeekSummary = {
     weekStart: number;
     messages: number;
+    replies: number;
     reactions: number;
+    links: number;
     activeParticipants: number;
     // members who joined the group that week; earlier members' join dates aren't known
     newParticipants: number;
@@ -84,10 +87,6 @@ function messageType(message: Activity) {
     return "Short message";
 }
 
-function percent(share: number) {
-    return `${Math.round(share * 100)}%`;
-}
-
 function plural(count: number, word: string, many = `${word}s`) {
     return `${count} ${count === 1 ? word : many}`;
 }
@@ -133,7 +132,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
         if (!person) {
             person = {
                 id: a.sender, name: a.display_name, firstSeen: a.ts, joinedAt: null, lastActive: null,
-                messages: 0, reactions: 0, replies: 0, conversationsStarted: 0, responsesReceived: 0,
+                messages: 0, reactions: 0, replies: 0, links: 0, conversationsStarted: 0, responsesReceived: 0,
                 activeDays: 0, weekly: new Array(weekCount).fill(0), patterns: [],
                 days: new Set(), weeksActive: new Set(),
             };
@@ -157,6 +156,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
 
         person.messages++;
         if (a.target_event_id) person.replies++;
+        if (a.has_link) person.links++;
         if (conversationStarters.has(a.event_id)) person.conversationsStarted++;
         person.responsesReceived += responsesTo.get(a.event_id) ?? 0;
     }
@@ -196,7 +196,9 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
         weeks.push({
             weekStart: firstWeek + w * WEEK,
             messages: inWeek.filter(a => a.kind === "message").length,
+            replies: inWeek.filter(a => a.kind === "message" && a.target_event_id).length,
             reactions: inWeek.filter(a => a.kind === "reaction").length,
+            links: inWeek.filter(a => a.kind === "message" && a.has_link).length,
             activeParticipants: active.size,
             newParticipants: joined.size,
         });
@@ -254,43 +256,44 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
     const points: DiscussionPoint[] = [];
     const { participants, concentration, responsesByType, coverage } = dashboard;
     const count = (pattern: Pattern) => participants.filter(p => p.patterns.includes(pattern)).length;
+    const has = (n: number) => n === 1 ? "hasn't" : "haven't";
 
     const days = Math.round((now - coverage.from) / DAY);
     if (days < 14) {
         points.push({
-            observation: `This view covers ${plural(days, "day")}, which is too short to show change over time.`,
-            question: "What would a typical month look like for this group, and what should we wait to see before reading much into these numbers?",
+            observation: `This only covers ${plural(days, "day")}, so it's too early to spot changes.`,
+            question: "What does a normal month look like for this group? Check back in a few weeks.",
         });
     }
 
     const quieter = count("quieter");
     if (quieter) {
         points.push({
-            observation: `${plural(quieter, "person", "people")} who used to post or react across several weeks ${quieter === 1 ? "hasn't" : "haven't"} done either in the last two weeks.`,
-            question: "Has something changed for them, such as timing, topics, other commitments, or simply reading rather than replying? Would a friendly one-to-one check-in be welcome?",
+            observation: `${plural(quieter, "person", "people")} who used to join in most weeks ${has(quieter)} posted or reacted for 2 weeks.`,
+            question: "Has something changed for them, like work, shifts or caring, or are they just reading quietly? A friendly one-to-one check-in could help.",
         });
     }
 
     const notSeen = count("not-seen");
     if (notSeen) {
         points.push({
-            observation: `${plural(notSeen, "member")} joined while the tool was on but ${notSeen === 1 ? "hasn't" : "haven't"} posted or reacted. Reading isn't visible to this tool.`,
-            question: "Are they following along quietly? Would a lower-stakes way in, like a reaction poll, a direct invitation, or a newcomer thread, make it easier to take part?",
+            observation: `${plural(notSeen, "new member")} ${has(notSeen)} posted or reacted yet. (This can't see who's reading.)`,
+            question: "Could you give them an easy way in, like a welcome message, a quick poll or a personal invite?",
         });
     }
 
     if (concentration.posters >= 5 && concentration.topFifthShare >= 0.6) {
         points.push({
-            observation: `The most active fifth of posters wrote ${percent(concentration.topFifthShare)} of messages. ${plural(concentration.peopleForHalf, "person", "people")} ${concentration.peopleForHalf === 1 ? "accounts" : "account"} for half.`,
-            question: "Does the group feel like it has room for other voices? Are some conversations happening elsewhere, such as in person, in DMs, or in other groups?",
+            observation: `Just ${plural(concentration.peopleForHalf, "person", "people")} wrote half of all the messages.`,
+            question: "Is there room for other voices? Are some conversations happening somewhere else, like in person or in private chats?",
         });
     }
 
     const reacters = count("mostly-reacts");
     if (reacters) {
         points.push({
-            observation: `${plural(reacters, "person", "people")} mostly ${reacters === 1 ? "takes" : "take"} part by reacting rather than posting.`,
-            question: "Is reacting the level of involvement people want, or is something making it harder to post?",
+            observation: `${plural(reacters, "person", "people")} mostly join in with reactions rather than messages.`,
+            question: "Is that how they like to take part, or is something making it harder to post?",
         });
     }
 
@@ -301,8 +304,8 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
         const restAverage = rest.reduce((s, r) => s + r.averageResponses * r.messages, 0) / rest.reduce((s, r) => s + r.messages, 0);
         if (best.averageResponses > restAverage * 1.3) {
             points.push({
-                observation: `${best.type} messages got ${best.averageResponses.toFixed(1)} replies or reactions on average, against ${restAverage.toFixed(1)} for other kinds of message.`,
-                question: `Is that something about ${best.type.toLowerCase()} messages, or about who tends to send them and when? Would trying more of them help people join in?`,
+                observation: `${best.type} messages get the most replies and reactions: ${best.averageResponses.toFixed(1)} each on average, compared with ${restAverage.toFixed(1)} for other messages.`,
+                question: `Could more ${best.type.toLowerCase()} messages help get people involved?`,
             });
         }
     }
@@ -310,8 +313,8 @@ function discussionPoints(dashboard: Dashboard, now: number): DiscussionPoint[] 
     const newcomers = count("new");
     if (newcomers) {
         points.push({
-            observation: `${plural(newcomers, "person", "people")} joined in the last two weeks.`,
-            question: "What did they see when they arrived? Did anyone welcome them, and do they know what the group is for?",
+            observation: `${plural(newcomers, "person", "people")} joined in the last 2 weeks.`,
+            question: "Have they been welcomed? Do they know what the group is for and how to get involved?",
         });
     }
 
