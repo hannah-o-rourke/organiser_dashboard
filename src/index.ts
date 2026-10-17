@@ -203,8 +203,10 @@ async function start() {
   app.post("/api/themes/switch", async (req, res) => {
     const { roomId } = req.query;
 
-    if (!canFindThemes())
+    if (!canFindThemes()) {
+      log("AI summaries switch pressed, but they aren't set up: needs ANTHROPIC_API_KEY, hub_url and engagement_secret in .env");
       return res.send({ success: false, message: "AI theme summaries aren't set up on this server" });
+    }
 
     res.send(await switchAi(roomId as string, Boolean(req.body.enabled)));
   })
@@ -219,7 +221,7 @@ async function start() {
       const result = await findThemes(roomId as string, String(req.body.month), botUserId);
       res.send({ success: true, ...result });
     } catch (err) {
-      console.error("finding themes failed", err);
+      log("  AI summary FAILED", { error: err instanceof Error ? err.message : String(err) });
       res.send({ success: false, message: err instanceof Error ? err.message : String(err) });
     }
   })

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { MatrixEvent } from "../types";
+import { log } from "./log";
 import { isCommand } from "./classify";
 import { getActivity, getAiSettings, isAiOptedOut, isOptedOut, logThemeRun, saveThemes, setAiEnabled } from "./duckdb";
 import { canImportHistory, fetchHistory, sendToGroup } from "./hub";
@@ -98,23 +99,30 @@ export const aiNotice = () =>
 // Switching on posts the opt-out notice; there's no summary without it.
 export async function switchAi(roomId: string, enabled: boolean) {
     const current = await getAiSettings(roomId);
-    if (current.enabled === enabled)
+    log(`AI summaries: switch ${enabled ? "ON" : "OFF"} requested`, { room: roomId, currently: current.enabled ? "on" : "off" });
+    if (current.enabled === enabled) {
+        log("  already in that state, nothing to do");
         return { success: true };
+    }
 
     const announcement = enabled
         ? await sendToGroup(roomId, aiNotice(), { engagementAiNotice: true })
         : await sendToGroup(roomId, "📊 An organiser has switched off AI theme summaries for this group. No more messages will be sent to Claude.");
 
-    if (enabled && !announcement.success)
+    if (enabled && !announcement.success) {
+        log("  couldn't post the opt-out notice, so summaries stay OFF", { error: announcement.message });
         return { success: false, message: `Couldn't post the opt-out notice in the group (${announcement.message}), so summaries stay off.` };
+    }
 
     await setAiEnabled(roomId, enabled);
+    log(`  AI summaries now ${enabled ? "ON" : "OFF"}`, enabled ? { first_summary_from: new Date(noticeEndsAt(Date.now())).toISOString() } : {});
     return { success: true };
 }
 
 // An organiser asks for a month's themes. Messages are fetched from the hub,
 // anonymised, sent to Claude, and only the resulting summary is kept.
 export async function findThemes(roomId: string, month: string, botUserId: string | undefined) {
+    log("AI summary requested", { room: roomId, month });
     const settings = await getAiSettings(roomId);
     if (!settings.enabled)
         throw new Error("AI theme summaries are switched off for this group.");
@@ -124,7 +132,9 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
 
     const { start, end } = monthRange(month);
 
+    log("  1/4 asking the hub for the month's messages");
     const events = await fetchHistory(roomId, start);
+    log("  hub sent events", { total: events.length, messages: events.filter(e => e.type === "m.room.message").length });
 
     const names = new Set<string>();
     const senders = new Set<string>();
@@ -139,11 +149,13 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
         if (await isOptedOut(roomId, sender) || await isAiOptedOut(roomId, sender)) optedOut.add(sender);
 
     const lines = transcript(events, [...names], botUserId, optedOut, start, end);
+    log("  2/4 messages left after removing opted-out people, the bot and commands", { usable: lines.length, opted_out_people: optedOut.size, bot_known: Boolean(botUserId) });
     if (lines.length < MINIMUM_MESSAGES)
         throw new Error(`Only ${lines.length} messages that month, which is too few to find themes in.`);
     if (lines.join("\n").length > MAXIMUM_CHARACTERS)
         throw new Error(`${lines.length} messages is more than one summary can cover. Ask the tool's host to raise the limit.`);
 
+    log("  3/4 sending to Claude", { model: MODEL, characters: lines.join("\n").length });
     const client = new Anthropic();
     const response = await client.messages.parse({
         model: MODEL,
@@ -155,6 +167,7 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
 
     // logged whatever the outcome, since a declined request is still billed
     await logThemeRun(roomId, response.usage.input_tokens, response.usage.output_tokens);
+    log("  Claude replied", { stop_reason: response.stop_reason, input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens, parsed: Boolean(response.parsed_output) });
 
     if (response.stop_reason === "refusal")
         throw new Error("Claude declined to summarise these messages.");
@@ -163,6 +176,7 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
 
     const themes = response.parsed_output.themes;
     await saveThemes(roomId, month, lines.length, themes);
+    log("  4/4 saved the summary", { themes: themes.length });
 
     const announcement = await sendToGroup(roomId,
         `📊 An organiser asked for the main themes in this group for ${month}. ${lines.length} messages were sent, without names, to Anthropic's Claude to summarise. ` +
