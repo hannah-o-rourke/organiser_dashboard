@@ -141,7 +141,7 @@ function Themes({ roomId }: { roomId: string }) {
   async function toggle() {
     if (!result) return;
     const turningOn = !result.enabled;
-    if (turningOn && !confirm("Turn on AI summaries? A message will go to the group explaining them. Anyone who reacts ❌ to it is left out. Everyone gets time to reply before the first summary.")) return;
+    if (turningOn && !confirm("Turn on AI summaries? A message will go to the group explaining them. Anyone who reacts ❌ to it is left out, and ✅ brings them back. Everyone gets time to reply before the first summary.")) return;
     if (!turningOn && !confirm("Turn off AI summaries? The group will be told. Summaries you've already made stay here.")) return;
 
     const response = await switchAi(roomId, turningOn).catch(err => ({ success: false, message: err.message }));
@@ -169,7 +169,7 @@ function Themes({ roomId }: { roomId: string }) {
         </div>
       )}
       {result.canFindThemes && !result.enabled && (
-        <p className="note">Turning this on sends a message to the group. Anyone who doesn't want to be included can react ❌.</p>
+        <p className="note">Turning this on sends a message to the group. Anyone who doesn't want to be included can react ❌, and ✅ to come back in.</p>
       )}
       {result.enabled && !ready && result.availableFrom && (
         <p className="note">⏳ Giving people time to opt out. You can make your first summary from <strong>{new Date(result.availableFrom).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</strong>.</p>

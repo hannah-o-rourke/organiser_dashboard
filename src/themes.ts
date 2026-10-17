@@ -18,6 +18,10 @@ const MAXIMUM_CHARACTERS = 360_000;
 const noticeHours = Number(process.env.AI_NOTICE_HOURS ?? 48);
 
 export const OPT_OUT_EMOJI = "❌";
+// any of these on an AI message opts someone back in
+export const OPT_IN_EMOJIS = ["✅", "✔", "☑"];
+
+const reactToChoose = `React ${OPT_OUT_EMOJI} to this message to leave your messages out of AI summaries, or ✅ to be included again.`;
 
 const ThemesSchema = z.object({
     themes: z.array(z.object({
@@ -93,7 +97,7 @@ export function noticeEndsAt(enabledAt: number | null) {
 export const aiNotice = () =>
     `📊 An organiser has switched on AI theme summaries for this group. From time to time they can ask for a month's main topics, summarised by Anthropic's Claude.\n\n` +
     `Messages are sent without names or contact details, the summary is about topics and never people, and only the summary is kept.\n\n` +
-    `If you DON'T want your messages included, react ${OPT_OUT_EMOJI} to this message (or send !engagement ai optout). If you don't, your messages may be included. ` +
+    `If you DON'T want your messages included, react ${OPT_OUT_EMOJI} to this message. If you don't react, your messages may be included, and you can react ✅ later to be included again. ` +
     `Nothing will be summarised for ${noticeHours} hours, and you can change your mind at any time.`;
 
 // Switching on posts the opt-out notice; there's no summary without it.
@@ -180,9 +184,11 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
     await saveThemes(roomId, month, lines.length, themes);
     log("  4/4 saved the summary", { themes: themes.length });
 
+    // sent with the AI notice context, so ❌ and ✅ reactions to it work too
     const announcement = await sendToGroup(roomId,
         `📊 An organiser asked for the main themes in this group for ${month}. ${lines.length} messages were sent, without names, to Anthropic's Claude to summarise. ` +
-        `Only the summary of topics is kept, never the messages or who said what. Send !engagement ai optout to keep your messages out of future summaries.`);
+        `Only the summary of topics is kept, never the messages or who said what.\n\n${reactToChoose}`,
+        { engagementAiNotice: true });
 
     return { themes, messageCount: lines.length, announced: announcement.success, announcementError: announcement.message };
 }

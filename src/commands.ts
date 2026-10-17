@@ -6,7 +6,7 @@ import { isAdmin, issueKey } from "./access";
 import { dashboardLink } from "./hub";
 import { computeDashboard } from "./metrics";
 import { requestByChat } from "./organisers";
-import { OPT_OUT_EMOJI } from "./themes";
+import { OPT_IN_EMOJIS, OPT_OUT_EMOJI } from "./themes";
 
 export const FORGET_EMOJI = "🗑️";
 
@@ -15,12 +15,12 @@ export type Reply = string | { message: string; context?: object; recipient?: st
 export const whatIsTracked =
     "📊 The Engagement tool keeps a record of *when* people post, react, reply and join or leave this group, so the group's organisers can see how participation changes over time.\n\n" +
     "It does NOT store what anyone writes, read receipts, or anything from private chats. Only the group's organisers can see the dashboard, and it's for asking better questions and checking in with people, not rating anyone. Anyone can see what's held about themselves.\n\n" +
-    "AI theme summaries are off unless an organiser switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting " + "❌" + " to that message or sending !engagement ai optout.\n\n" +
+    "AI theme summaries are off unless an organiser switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting ❌ to that message (✅ to be included again).\n\n" +
     "Commands:\n" +
     "• !engagement me: see what's held about you (replies here in the group)\n" +
     "• !engagement optout: stop tracking you here and delete what's held\n" +
     "• !engagement optin: start tracking you again\n" +
-    "• !engagement ai optout / ai optin: keep your messages out of AI summaries, or include them again\n" +
+    "• ❌ / ✅ on any AI summary message: leave your messages out of AI summaries, or include them again\n" +
     "• !engagement email name@example.org: organisers get the dashboard link by email";
 
 const askForEmail =
@@ -56,10 +56,10 @@ function day(ts: number | null) {
 
 async function aiStatus(event: MatrixEvent) {
     if (await isAiOptedOut(event.room_id, event.sender))
-        return "Their messages are kept out of AI theme summaries (!engagement ai optin to include them).";
+        return "Their messages are kept out of AI theme summaries (react ✅ to any AI summary message to include them).";
     const { enabled } = await getAiSettings(event.room_id);
     return enabled
-        ? "AI theme summaries are on here and their messages may be included (!engagement ai optout to keep them out)."
+        ? "AI theme summaries are on here and their messages may be included (react ❌ to any AI summary message to leave them out)."
         : "AI theme summaries are off here.";
 }
 
@@ -136,13 +136,21 @@ export async function handleConfirmation(event: MatrixEvent): Promise<Reply | un
     const confirming = event.prevEvent?.content?.context?.engagementConfirm;
     const emoji = event.content?.["m.relates_to"]?.key ?? "";
 
-    // ❌ on the notice posted when AI summaries were switched on
-    if (event.prevEvent?.content?.context?.engagementAiNotice && emoji.includes(OPT_OUT_EMOJI)) {
-        await aiOptOut(event.room_id, event.sender, event.event_id);
-        return {
-            recipient: event.sender,
-            message: `Your messages will be left out of AI theme summaries in that group. Remove your ${OPT_OUT_EMOJI} (or send !engagement ai optin there) to be included again.`,
-        };
+    // ❌ / ✅ on any of the tool's AI messages: the switch-on notice or a summary announcement.
+    // Confirmed in the group, because private messages don't reliably reach WhatsApp or Signal.
+    if (event.prevEvent?.content?.context?.engagementAiNotice) {
+        const name = event.displayname ?? "you";
+
+        if (emoji.includes(OPT_OUT_EMOJI)) {
+            await aiOptOut(event.room_id, event.sender, event.event_id);
+            return `👍 Got it, ${name}: your messages will be left out of AI summaries. React ✅ to an AI summary message any time to be included again.`;
+        }
+
+        if (OPT_IN_EMOJIS.some(tick => emoji.includes(tick))) {
+            if (!await isAiOptedOut(event.room_id, event.sender)) return undefined;
+            await aiOptIn(event.room_id, event.sender);
+            return `👍 Thanks, ${name}: your messages may be included in AI summaries again.`;
+        }
     }
 
     if (confirming === "forget" && emoji.includes(FORGET_EMOJI.replace("️", ""))) {

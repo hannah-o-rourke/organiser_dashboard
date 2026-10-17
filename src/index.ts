@@ -60,7 +60,7 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
     // a removed ❌ on the AI notice opts that person back in
     const optedBackIn = await aiOptInByReaction(event.room_id, redacts);
     if (optedBackIn)
-      return { recipient: optedBackIn, message: "You removed your ❌, so your messages may be included in AI theme summaries in that group again." };
+      return "👍 A ❌ was removed, so that person's messages may be included in AI summaries again.";
     return;
   }
 

@@ -75,8 +75,8 @@ the **Questions to discuss** section, for organisers to explore with people.
   - `!engagement optout` deletes it and stops recording you, including your
     name on others' replies to you
   - `!engagement optin` reverses that
-  - ❌ on the AI notice, or `!engagement ai optout` / `ai optin`, keeps your
-    messages out of AI theme summaries or includes them again
+  - ❌ on any AI summary message keeps your messages out of AI theme
+    summaries, and ✅ includes them again
   - organisers can delete everything held for the group from the dashboard
     (*Organisers and data*). Organisers keep their access, and opt-outs are kept
 - **Deleted messages are deleted here too** (the tool listens for redactions).
@@ -94,11 +94,12 @@ default:
    dashboard. Nothing is ever sent to Claude while it's off.
 2. **Switching on posts a notice in the group** explaining what will happen.
    Anyone who reacts ❌ to it has their messages left out of every summary, and
-   the tool confirms by DM. Anyone who doesn't react is treated as happy to be
-   included. Removing the ❌ opts that person back in, and
-   `!engagement ai optout` / `ai optin` do the same for anyone who missed the
-   notice, such as people who join later. If the notice can't be posted, the
-   switch stays off.
+   the tool confirms in the group. Anyone who doesn't react is treated as happy
+   to be included. A ✅ (or removing the ❌) opts that person back in. Every
+   summary announcement works the same way, so people who missed the first
+   notice, such as those who join later, can react to the next one.
+   `!engagement ai optout` / `ai optin` still work for anyone who can't react.
+   If the notice can't be posted, the switch stays off.
 3. **There's a notice period.** No summary can run until `AI_NOTICE_HOURS`
    (default 48) after switching on, so people have time to react. Switching off
    and on again starts it afresh. Earlier opt-outs carry over.
