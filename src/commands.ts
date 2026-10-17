@@ -17,7 +17,7 @@ export const whatIsTracked =
     "It does NOT store what anyone writes, read receipts, or anything from private chats. Only the group's organisers can see the dashboard, and it's for asking better questions and checking in with people, not rating anyone. Anyone can see what's held about themselves.\n\n" +
     "AI theme summaries are off unless an organiser switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting " + "❌" + " to that message or sending !engagement ai optout.\n\n" +
     "Commands:\n" +
-    "• !engagement me: get a private message with what's held about you\n" +
+    "• !engagement me: see what's held about you (replies here in the group)\n" +
     "• !engagement optout: stop tracking you here and delete what's held\n" +
     "• !engagement optin: start tracking you again\n" +
     "• !engagement ai optout / ai optin: keep your messages out of AI summaries, or include them again\n" +
@@ -56,32 +56,30 @@ function day(ts: number | null) {
 
 async function aiStatus(event: MatrixEvent) {
     if (await isAiOptedOut(event.room_id, event.sender))
-        return "Your messages are kept out of AI theme summaries (!engagement ai optin to include them).";
+        return "Their messages are kept out of AI theme summaries (!engagement ai optin to include them).";
     const { enabled } = await getAiSettings(event.room_id);
     return enabled
-        ? "AI theme summaries are on in that group and your messages may be included (!engagement ai optout to keep them out)."
-        : "AI theme summaries are off in that group.";
+        ? "AI theme summaries are on here and their messages may be included (!engagement ai optout to keep them out)."
+        : "AI theme summaries are off here.";
 }
 
+// Replies in the group rather than privately, because private messages from
+// the bot don't reliably reach WhatsApp and Signal. It's counts only, never
+// anything anyone wrote.
 async function describeMe(event: MatrixEvent): Promise<Reply> {
-    if (await isOptedOut(event.room_id, event.sender)) {
-        return {
-            recipient: event.sender,
-            message: "You've opted out of the Engagement tool in that group, so nothing is held about you there. Send !engagement optin in the group if you change your mind.",
-        };
-    }
+    const name = event.displayname ?? "you";
+
+    if (await isOptedOut(event.room_id, event.sender))
+        return `📊 ${name} has opted out of the Engagement tool here, so nothing is held about them. Send !engagement optin to change that.`;
 
     const dashboard = computeDashboard(await getActivity(event.room_id), await getRoom(event.room_id), 0);
     const me = dashboard.participants.find(p => p.id === event.sender);
 
     const summary = me
-        ? `Since ${day(dashboard.coverage.from)} it has counted ${count(me.messages, "message")} (${me.replies} of them replies), ${count(me.reactions, "reaction")}, and ${me.responsesReceived} replies or reactions from others to your messages. You were last active on ${day(me.lastActive)}.`
-        : "It hasn't recorded any activity from you yet.";
+        ? `Since ${day(dashboard.coverage.from)}: ${count(me.messages, "message")} (${me.replies} of them replies), ${count(me.reactions, "reaction")}, and ${me.responsesReceived} replies or reactions from others. Last active ${day(me.lastActive)}.`
+        : "Nothing recorded yet.";
 
-    return {
-        recipient: event.sender,
-        message: `Here's what the Engagement tool holds about you in that group. ${summary}\n\n${await aiStatus(event)}\n\nIt never stores what you write. Send !engagement optout in the group to delete this and stop tracking.`,
-    };
+    return `📊 What the Engagement tool holds about ${name}: ${summary}\n\n${await aiStatus(event)}\n\nIt never stores what anyone writes. Send !engagement optout to delete this and stop tracking.`;
 }
 
 export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]> {
