@@ -114,6 +114,20 @@ export const aiNotice = () =>
     "✅ Changed your mind later? React ✅.\n\n" +
     `If you don't react, your messages may be included.${waitText()}`;
 
+// Sent when someone joins while AI summaries are on, since they missed the
+// original notice. Reactions to it work like reactions to that notice.
+export function aiWelcome(name: string) {
+    return {
+        message:
+            `👋 *Welcome, ${name}!*\n\n` +
+            "🤖 This group has AI summaries turned on. Organisers can ask an AI to sum up the main topics people talk about. Names are removed first, and only the short summary is kept.\n\n" +
+            `❌ *Rather your messages weren't included?* React ${OPT_OUT_EMOJI} to this message.\n` +
+            "If you don't react, your messages may be included. You can change your mind any time with ✅.\n\n" +
+            "📊 This group also uses the Engagement tool, which counts *when* people post (never what they write). Send *!engagement* to find out more.",
+        context: { engagementAiNotice: true },
+    };
+}
+
 // Switching on posts the opt-out notice; there's no summary without it.
 export async function switchAi(roomId: string, enabled: boolean) {
     const current = await getAiSettings(roomId);

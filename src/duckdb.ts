@@ -68,6 +68,12 @@ export async function startDuckDB(fileName = "engagement_duckdb.db") {
     );`);
     // people who keep their messages out of AI summaries; via_event_id is the
     // ❌ reaction that opted them out, so removing the reaction opts them back in
+    // new members already sent the AI summaries welcome, so it's only sent once
+    await connection.run(`CREATE TABLE IF NOT EXISTS AiWelcomed (
+        room_id VARCHAR,
+        sender VARCHAR,
+        PRIMARY KEY (room_id, sender)
+    );`);
     await connection.run(`CREATE TABLE IF NOT EXISTS AiOptOuts (
         room_id VARCHAR,
         sender VARCHAR,
@@ -275,4 +281,12 @@ export async function removeOrganiserEmail(roomId: string, email: string) {
 export async function getEmailForKey(roomId: string, keyHash: string) {
     const [found] = await rows(`SELECT email FROM OrganiserEmails WHERE room_id = $1 AND key_hash = $2 AND status = 'active';`, [roomId, keyHash]);
     return found?.email as string | undefined;
+}
+
+// true the first time it's called for a member, false after that
+export async function markAiWelcomed(roomId: string, sender: string) {
+    const found = await rows(`SELECT 1 FROM AiWelcomed WHERE room_id = $1 AND sender = $2;`, [roomId, sender]);
+    if (found.length) return false;
+    await connection.run(`INSERT INTO AiWelcomed VALUES ($1, $2);`, [roomId, sender]);
+    return true;
 }

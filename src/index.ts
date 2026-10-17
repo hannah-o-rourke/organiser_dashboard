@@ -8,11 +8,11 @@ import { log } from "./log";
 import { forgetCachedPowerLevels, organiserFor } from "./access";
 import { classify, isCommand } from "./classify";
 import { firstContactNotice, handleCommand, handleConfirmation, Reply } from "./commands";
-import { deleteActivityEvent, getActivity, getOptOutCount, getRoom, getThemes, insertActivity, insertRoom, isOptedOut, savePowerLevels, startDuckDB, forgetRoom, getAiSettings, getAiOptOutCount, aiOptInByReaction } from "./duckdb";
+import { deleteActivityEvent, getActivity, getOptOutCount, getRoom, getThemes, insertActivity, insertRoom, isOptedOut, savePowerLevels, startDuckDB, forgetRoom, getAiSettings, getAiOptOutCount, aiOptInByReaction, markAiWelcomed } from "./duckdb";
 import { canImportHistory, sendToGroup, TOOL_ID } from "./hub";
 import { importHistory } from "./history";
 import { computeDashboard } from "./metrics";
-import { canFindThemes, findThemes, noticeEndsAt, switchAi } from "./themes";
+import { aiWelcome, canFindThemes, findThemes, noticeEndsAt, switchAi } from "./themes";
 import { canEmail } from "./email";
 import { grantAccess, listOrganisers, removeAccess } from "./organisers";
 
@@ -85,6 +85,12 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
   }
   await insertActivity(activity);
   log("  recorded", { kind: activity.kind, format: activity.format ?? undefined, reply: Boolean(activity.target_event_id) || undefined });
+
+  // someone new missed the AI summaries notice, so check with them directly
+  if (activity.kind === "join" && (await getAiSettings(event.room_id)).enabled && await markAiWelcomed(event.room_id, activity.sender)) {
+    log("  new member while AI summaries are on, sending them the AI welcome");
+    return aiWelcome(activity.display_name);
+  }
 }
 
 async function start() {
