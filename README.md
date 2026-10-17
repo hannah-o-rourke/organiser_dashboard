@@ -96,8 +96,9 @@ default:
    Anyone who reacts ❌ to it has their messages left out of every summary, and
    the tool confirms in the group. Anyone who doesn't react is treated as happy
    to be included. A ✅ (or removing the ❌) opts that person back in. Every
-   summary announcement works the same way, so people who missed the first
-   notice, such as those who join later, can react to the next one.
+   summary announcement works the same way. Anyone who joins while summaries
+   are on gets their own welcome message (once) explaining them, which they
+   can react ❌ to in the same way.
    `!engagement ai optout` / `ai optin` still work for anyone who can't react.
    If the notice can't be posted, the switch stays off.
 3. **There's a notice period.** No summary can run until `AI_NOTICE_HOURS`
