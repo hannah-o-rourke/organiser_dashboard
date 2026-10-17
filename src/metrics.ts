@@ -92,10 +92,14 @@ function plural(count: number, word: string, many = `${word}s`) {
     return `${count} ${count === 1 ? word : many}`;
 }
 
-export function computeDashboard(activity: Activity[], room: RoomSettings | undefined, optedOut: number, now = Date.now()): Dashboard {
-    const sorted = [...activity].sort((a, b) => a.ts - b.ts);
+// `since` limits the view to a recent period. Joins and leaves from before it
+// are kept, so people who joined earlier but were quiet in the period still show.
+export function computeDashboard(activity: Activity[], room: RoomSettings | undefined, optedOut: number, now = Date.now(), since?: number): Dashboard {
+    const inPeriod = since === undefined ? activity : activity.filter(a => a.kind === "join" || a.kind === "leave" || a.ts >= since);
+    const sorted = [...inPeriod].sort((a, b) => a.ts - b.ts);
     const trackingSince = room?.tracking_since ?? sorted[0]?.ts ?? now;
-    const from = Math.min(room?.imported_from ?? trackingSince, sorted[0]?.ts ?? trackingSince);
+    const earliest = Math.min(room?.imported_from ?? trackingSince, sorted[0]?.ts ?? trackingSince);
+    const from = since === undefined ? earliest : Math.max(since, earliest);
 
     const firstWeek = weekStart(from);
     const weekCount = Math.max(1, Math.floor((weekStart(now) - firstWeek) / WEEK) + 1);
@@ -188,7 +192,7 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
     for (let w = 0; w < weekCount; w++) {
         const inWeek = sorted.filter(a => weekIndex(a.ts) === w && (a.kind === "message" || a.kind === "reaction"));
         const active = new Set(inWeek.map(a => a.sender));
-        const joined = new Set(sorted.filter(a => a.kind === "join" && weekIndex(a.ts) === w).map(a => a.sender));
+        const joined = new Set(sorted.filter(a => a.kind === "join" && a.ts >= from && weekIndex(a.ts) === w).map(a => a.sender));
         weeks.push({
             weekStart: firstWeek + w * WEEK,
             messages: inWeek.filter(a => a.kind === "message").length,
@@ -224,8 +228,8 @@ export function computeDashboard(activity: Activity[], room: RoomSettings | unde
             to: now,
             trackingSince,
             importedFrom: room?.imported_from ?? null,
-            liveEvents: sorted.filter(a => a.source === "live").length,
-            importedEvents: sorted.filter(a => a.source === "imported").length,
+            liveEvents: sorted.filter(a => a.ts >= from && a.source === "live").length,
+            importedEvents: sorted.filter(a => a.ts >= from && a.source === "imported").length,
             participants: participants.length,
             optedOut,
         },

@@ -244,6 +244,23 @@ function heatStep(count: number) {
   return 4;
 }
 
+const periods: [number, string][] = [
+  [7, "Last 7 days"],
+  [30, "Last 30 days"],
+  [90, "Last 3 months"],
+  [365, "Last year"],
+  [0, "All time"],
+];
+
+function readStoredNumber(key: string, fallback: number) {
+  try {
+    const stored = Number(localStorage.getItem(key));
+    return periods.some(([value]) => value === stored) && localStorage.getItem(key) !== null ? stored : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function readStoredBoolean(key: string, fallback: boolean) {
   try {
     const stored = localStorage.getItem(key);
@@ -366,10 +383,11 @@ export default function App() {
   const [importDays, setImportDays] = useState(30);
   const [importStatus, setImportStatus] = useState("");
   const [tip, setTip] = useState<Tip>(null);
+  const [days, setDays] = useState(() => readStoredNumber("engagement.days", 0));
 
-  async function loadDashboard(roomId: string) {
+  async function loadDashboard(roomId: string, period = days) {
     try {
-      setDashboard(await getDashboard(roomId));
+      setDashboard(await getDashboard(roomId, period));
     } catch (err) {
       setError(err instanceof NotAllowed ? err.message : "Couldn't load the dashboard. Is the Engagement tool running?");
     }
@@ -380,6 +398,14 @@ export default function App() {
       loadDashboard(roomId);
     }
   }, []);
+
+  function choosePeriod(period: number) {
+    setDays(period);
+    try {
+      localStorage.setItem("engagement.days", String(period));
+    } catch { }
+    if (roomId) loadDashboard(roomId, period);
+  }
 
   function toggleNames() {
     setHideNames(!hideNames);
@@ -422,9 +448,17 @@ export default function App() {
           Only the group's organisers can see this page. Everyone can see what's held about themselves with <code>!engagement me</code>, and opt out with <code>!engagement optout</code>.
           Your link is personal, so please don't share it.
         </p>
-        <label className="toggle">
-          <input type="checkbox" checked={hideNames} onChange={toggleNames} /> Hide names (for screen sharing)
-        </label>
+        <div className="controls">
+          <label className="period">
+            Showing
+            <select value={days} onChange={e => choosePeriod(Number(e.target.value))}>
+              {periods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="toggle">
+            <input type="checkbox" checked={hideNames} onChange={toggleNames} /> Hide names (for screen sharing)
+          </label>
+        </div>
       </header>
 
       <section>

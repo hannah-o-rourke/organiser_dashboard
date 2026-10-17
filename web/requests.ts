@@ -1,16 +1,18 @@
 const { origin, pathname } = window.location;
 const BASE_URL = `${origin}${pathname}`.replace(/\/$/, "");
 
-// The personal key arrives in the link an admin was sent. It's moved out of the
-// address bar so it doesn't end up in screenshots or screen shares.
+// The personal key arrives in the link an organiser was emailed. It's moved out
+// of the address bar so it doesn't end up in screenshots or screen shares, and
+// remembered in this browser for this group, so a bookmark of the page works.
 function readKey() {
     const params = new URLSearchParams(window.location.search);
     const fromLink = params.get("key");
+    const storageKey = `engagement.key.${params.get("roomId") ?? ""}`;
     let key = fromLink;
 
     try {
-        if (fromLink) sessionStorage.setItem("engagement.key", fromLink);
-        else key = sessionStorage.getItem("engagement.key");
+        if (fromLink) localStorage.setItem(storageKey, fromLink);
+        else key = localStorage.getItem(storageKey);
     } catch { }
 
     if (fromLink) {
@@ -24,8 +26,8 @@ const key = readKey();
 
 export class NotAllowed extends Error { }
 
-async function call(path: string, roomId: string, body?: object) {
-    const response = await fetch(`${BASE_URL}${path}?roomId=${encodeURIComponent(roomId)}`, {
+async function call(path: string, roomId: string, body?: object, query = "") {
+    const response = await fetch(`${BASE_URL}${path}?roomId=${encodeURIComponent(roomId)}${query}`, {
         method: body ? "POST" : "GET",
         body: body ? JSON.stringify(body) : undefined,
         headers: {
@@ -38,8 +40,9 @@ async function call(path: string, roomId: string, body?: object) {
     return result;
 }
 
-export async function getDashboard(roomId: string) {
-    return await call("/api/dashboard", roomId);
+// days: only the last so many days; 0 for everything
+export async function getDashboard(roomId: string, days: number) {
+    return await call("/api/dashboard", roomId, undefined, days ? `&days=${days}` : "");
 }
 
 export async function importHistory(roomId: string, days: number) {

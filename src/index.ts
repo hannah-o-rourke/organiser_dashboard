@@ -166,7 +166,11 @@ async function start() {
     const room = await getRoom(roomId as string);
     const optedOut = await getOptOutCount(roomId as string);
 
-    res.send({ ...computeDashboard(activity, room, optedOut), canImportHistory: canImportHistory() });
+    // ?days=30 shows just the last 30 days; leave it out for everything
+    const days = Number(req.query.days);
+    const since = days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : undefined;
+
+    res.send({ ...computeDashboard(activity, room, optedOut, Date.now(), since), canImportHistory: canImportHistory() });
   })
 
   app.post("/api/import", async (req, res) => {

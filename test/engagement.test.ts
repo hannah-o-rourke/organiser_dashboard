@@ -168,3 +168,17 @@ test("email addresses are checked, normalised and masked for the group", () => {
     assert.equal(normaliseEmail("a@b"), null);
     assert.equal(maskEmail("hannah@campaignlab.uk"), "h•••@campaignlab.uk");
 });
+
+test("a chosen period drops older activity but keeps who's a member", () => {
+    const rows = [
+        activity({ event_id: "$j", sender: "@rae:x", ts: NOW - 60 * DAY, kind: "join" }),
+        activity({ event_id: "$old", sender: "@ana:x", ts: NOW - 40 * DAY, kind: "message" }),
+        activity({ event_id: "$new", sender: "@ana:x", ts: NOW - 2 * DAY, kind: "message" }),
+    ];
+    const dashboard = computeDashboard(rows, undefined, 0, NOW, NOW - 7 * DAY);
+
+    assert.equal(dashboard.participants.find(p => p.id === "@ana:x")!.messages, 1);
+    assert.ok(dashboard.participants.some(p => p.id === "@rae:x" && p.patterns.includes("not-seen")));
+    assert.equal(dashboard.coverage.from, NOW - 7 * DAY);
+    assert.equal(dashboard.weeks.reduce((s, w) => s + w.newParticipants, 0), 0);
+});
