@@ -37,12 +37,12 @@ export async function requestByChat(event: MatrixEvent, text: string) {
     const roomId = event.room_id;
     const name = event.displayname ?? "someone";
 
-    if (!canEmail()) return "Email isn't set up on this server yet, so the dashboard link can't be sent.";
+    if (!canEmail()) return "Sorry, dashboard emails aren't set up yet.";
 
     const email = normaliseEmail(text);
-    if (!email) return "That doesn't look like an email address. Try: !engagement email name@example.org";
+    if (!email) return "Hmm, that doesn't look like an email address. Try: *!engagement email name@example.org*";
 
-    if (!underLimit(roomId)) return "Too many dashboard emails from this group in the last hour. Please try again later.";
+    if (!underLimit(roomId)) return "Too many requests in the last hour. Please try again a bit later.";
 
     const organisers = await getOrganiserEmails(roomId);
     const existing = organisers.find(o => o.email === email);
@@ -50,7 +50,7 @@ export async function requestByChat(event: MatrixEvent, text: string) {
     const admin = await isAdmin(roomId, event.sender);
 
     if (admin === false && !hasOrganisers)
-        return "Only this group's admins can set up the Engagement dashboard.";
+        return "Sorry, only the group's admins can set up the dashboard.";
 
     if (existing?.status === "active" || !hasOrganisers || admin === true) {
         try {
@@ -59,12 +59,12 @@ export async function requestByChat(event: MatrixEvent, text: string) {
             log("  email FAILED", { error: err instanceof Error ? err.message : String(err) });
             return "Sorry, the email couldn't be sent. Please check the address and try again.";
         }
-        return `📧 Sent a link to the Engagement dashboard to ${maskEmail(email)}. You can delete your message with the address in it now.`;
+        return `📧 Sent a private dashboard link to ${maskEmail(email)}.\n\nTip: you can delete your message now, so your email address isn't left in the chat.`;
     }
 
     await saveOrganiserEmail(roomId, email, "pending", null, name);
     log("  email request waiting for an organiser to approve", { email: maskEmail(email) });
-    return `📧 Asked this group's organisers to approve ${maskEmail(email)}. They'll see the request on the dashboard, and the link will be emailed once they do. You can delete your message with the address in it now.`;
+    return `📧 Thanks! An organiser needs to approve ${maskEmail(email)} first. Once they do, the link will be emailed.\n\nTip: you can delete your message now, so your email address isn't left in the chat.`;
 }
 
 export async function listOrganisers(roomId: string) {
@@ -84,7 +84,7 @@ export async function grantAccess(roomId: string, email: string, grantedBy: stri
         return { success: false, message: err instanceof Error ? err.message : String(err) };
     }
 
-    await sendToGroup(roomId, `📊 ${maskEmail(address)} has been given access to the Engagement dashboard by another organiser.`);
+    await sendToGroup(roomId, `📊 ${maskEmail(address)} can now see the dashboard (added by an organiser).`);
     return { success: true };
 }
 

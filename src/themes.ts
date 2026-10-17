@@ -21,7 +21,7 @@ export const OPT_OUT_EMOJI = "❌";
 // any of these on an AI message opts someone back in
 export const OPT_IN_EMOJIS = ["✅", "✔", "☑"];
 
-const reactToChoose = `React ${OPT_OUT_EMOJI} to this message to leave your messages out of AI summaries, or ✅ to be included again.`;
+const reactToChoose = `❌ React ${OPT_OUT_EMOJI} to leave your messages out of future summaries, or ✅ to be included again.`;
 
 const ThemesSchema = z.object({
     themes: z.array(z.object({
@@ -42,6 +42,10 @@ Give 3 to 6 themes, most prominent first. Each has a short title (at most six wo
 // needs the hub too, to fetch the month's messages and tell the group
 export function canFindThemes() {
     return Boolean(process.env.ANTHROPIC_API_KEY) && canImportHistory();
+}
+
+function monthLabel(month: string) {
+    return new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 export function monthRange(month: string) {
@@ -94,11 +98,21 @@ export function noticeEndsAt(enabledAt: number | null) {
     return (enabledAt ?? 0) + noticeHours * 60 * 60 * 1000;
 }
 
+function waitText() {
+    if (noticeHours <= 0) return "";
+    const wait = noticeHours % 24 === 0 ? `${noticeHours / 24} ${noticeHours === 24 ? "day" : "days"}` : `${noticeHours} hours`;
+    return ` Nothing will be summarised for the next ${wait}.`;
+}
+
 export const aiNotice = () =>
-    `📊 An organiser has switched on AI theme summaries for this group. From time to time they can ask for a month's main topics, summarised by Anthropic's Claude.\n\n` +
-    `Messages are sent without names or contact details, the summary is about topics and never people, and only the summary is kept.\n\n` +
-    `If you DON'T want your messages included, react ${OPT_OUT_EMOJI} to this message. If you don't react, your messages may be included, and you can react ✅ later to be included again. ` +
-    `Nothing will be summarised for ${noticeHours} hours, and you can change your mind at any time.`;
+    "🤖 *AI summaries are now on for this group*\n\n" +
+    "Organisers can ask an AI (Anthropic's Claude) to sum up the main topics the group talked about each month.\n\n" +
+    "• Names and phone numbers are removed first\n" +
+    "• It's about topics, never about who said what\n" +
+    "• Only the short summary is kept\n\n" +
+    `❌ *Don't want your messages included?* React ${OPT_OUT_EMOJI} to this message.\n` +
+    "✅ Changed your mind later? React ✅.\n\n" +
+    `If you don't react, your messages may be included.${waitText()}`;
 
 // Switching on posts the opt-out notice; there's no summary without it.
 export async function switchAi(roomId: string, enabled: boolean) {
@@ -111,7 +125,7 @@ export async function switchAi(roomId: string, enabled: boolean) {
 
     const announcement = enabled
         ? await sendToGroup(roomId, aiNotice(), { engagementAiNotice: true })
-        : await sendToGroup(roomId, "📊 An organiser has switched off AI theme summaries for this group. No more messages will be sent to Claude.");
+        : await sendToGroup(roomId, "🤖 AI summaries are now off for this group. No more messages will be sent to the AI.");
 
     if (enabled && !announcement.success) {
         log("  couldn't post the opt-out notice, so summaries stay OFF", { error: announcement.message });
@@ -129,7 +143,7 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
     log("AI summary requested", { room: roomId, month });
     const settings = await getAiSettings(roomId);
     if (!settings.enabled)
-        throw new Error("AI theme summaries are switched off for this group.");
+        throw new Error("AI summaries are turned off for this group.");
     const availableFrom = noticeEndsAt(settings.enabledAt);
     if (availableFrom > Date.now())
         throw new Error(`To give people time to opt out, the first summary can run from ${new Date(availableFrom).toUTCString()}.`);
@@ -186,8 +200,8 @@ export async function findThemes(roomId: string, month: string, botUserId: strin
 
     // sent with the AI notice context, so ❌ and ✅ reactions to it work too
     const announcement = await sendToGroup(roomId,
-        `📊 An organiser asked for the main themes in this group for ${month}. ${lines.length} messages were sent, without names, to Anthropic's Claude to summarise. ` +
-        `Only the summary of topics is kept, never the messages or who said what.\n\n${reactToChoose}`,
+        `🤖 An organiser has made an AI summary of what the group talked about in ${monthLabel(month)}. ` +
+        `${lines.length} messages were used, with names removed. Only the summary is kept.\n\n${reactToChoose}`,
         { engagementAiNotice: true });
 
     return { themes, messageCount: lines.length, announced: announcement.success, announcementError: announcement.message };

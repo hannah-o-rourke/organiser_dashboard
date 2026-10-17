@@ -29,9 +29,9 @@ const moduleRegistration = {
   uuid: uuidv4(),
   url: tool_url || `http://localhost:${port}`,
   emoji: "📊",
-  introduction: "This records when people post, react, reply and join, but never what they write, so the group's organisers can see how participation changes over time. Organisers: send !engagement email your@address to get the dashboard link. AI theme summaries stay off unless an organiser switches them on, and you'll be able to opt out here first. Send !engagement to see what's tracked, get your own data, or opt out.",
+  introduction: "It counts when people post, reply and react (never what they write), so organisers can see how the group is doing and check in with people. Send !engagement to find out more or to opt out. Organisers: send !engagement email followed by your email address to get the dashboard link.",
   title: "Engagement",
-  description: "Shows organisers how participation changes over time, with questions to discuss with the group",
+  description: "Helps organisers see who's joining in and who's gone quiet, without saving what anyone writes",
   secret: engagement_secret,
   event_types: [
     "m.room.message", "m.reaction", "m.room.member", "m.room.redaction", "m.room.power_levels"
@@ -60,7 +60,7 @@ async function handleEvent(event: MatrixEvent): Promise<Reply | Reply[] | undefi
     // a removed ❌ on the AI notice opts that person back in
     const optedBackIn = await aiOptInByReaction(event.room_id, redacts);
     if (optedBackIn)
-      return "👍 A ❌ was removed, so that person's messages may be included in AI summaries again.";
+      return "👍 Someone removed their ❌, so their messages may be included in AI summaries again.";
     return;
   }
 
@@ -209,7 +209,7 @@ async function start() {
 
     if (!canFindThemes()) {
       log("AI summaries switch pressed, but they aren't set up: needs ANTHROPIC_API_KEY, hub_url and engagement_secret in .env");
-      return res.send({ success: false, message: "AI theme summaries aren't set up on this server" });
+      return res.send({ success: false, message: "AI summaries aren't set up on this server yet" });
     }
 
     res.send(await switchAi(roomId as string, Boolean(req.body.enabled)));
@@ -250,7 +250,7 @@ async function start() {
   app.post("/api/forget", async (req, res) => {
     const { roomId } = req.query;
     await forgetRoom(roomId as string);
-    await sendToGroup(roomId as string, "📊 An organiser has deleted everything the Engagement tool held for this group. Tracking starts afresh from now unless the tool is removed (⚙️, then 🙏).");
+    await sendToGroup(roomId as string, "🗑️ An organiser has deleted everything the tool had counted for this group. It will start counting again from now.");
     res.send({ success: true });
   })
 

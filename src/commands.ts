@@ -13,22 +13,22 @@ export const FORGET_EMOJI = "🗑️";
 export type Reply = string | { message: string; context?: object; recipient?: string };
 
 export const whatIsTracked =
-    "📊 The Engagement tool keeps a record of *when* people post, react, reply and join or leave this group, so the group's organisers can see how participation changes over time.\n\n" +
-    "It does NOT store what anyone writes, read receipts, or anything from private chats. Only the group's organisers can see the dashboard, and it's for asking better questions and checking in with people, not rating anyone. Anyone can see what's held about themselves.\n\n" +
-    "AI theme summaries are off unless an organiser switches them on. If they do, the tool posts here first, and anyone can keep their messages out by reacting ❌ to that message (✅ to be included again).\n\n" +
-    "Commands:\n" +
-    "• !engagement me: see what's held about you (replies here in the group)\n" +
-    "• !engagement optout: stop tracking you here and delete what's held\n" +
-    "• !engagement optin: start tracking you again\n" +
-    "• ❌ / ✅ on any AI summary message: leave your messages out of AI summaries, or include them again\n" +
-    "• !engagement email name@example.org: organisers get the dashboard link by email";
+    "📊 *This group uses the Engagement tool*\n\n" +
+    "It helps the organisers see how lively the group is, like who's joining in and who's gone quiet, so they can check in with people.\n\n" +
+    "✅ It counts *when* people send messages, replies, reactions and links, and when people join or leave.\n" +
+    "🚫 It never saves what anyone writes. It can't see who reads messages, or anything in private chats.\n" +
+    "🔒 Only the group's organisers can see the results.\n" +
+    "🤖 If organisers turn on AI summaries, you'll get a message first and can say no by reacting ❌.\n\n" +
+    "*What you can do:*\n" +
+    "• Send *!engagement me* to see what's been counted for you\n" +
+    "• Send *!engagement optout* to stop being counted and delete your data\n" +
+    "• Send *!engagement optin* to be counted again";
 
 const askForEmail =
-    "\n\n👋 Organisers: send !engagement email your@address to get the dashboard link by email. " +
-    "The first address is set up straight away; after that, new ones need an existing organiser to approve them.";
+    "\n\n👋 *Organisers:* to see the dashboard, send *!engagement email* followed by your email address, and you'll be emailed a private link.";
 
-const notAdmin = "Only this group's organisers can open the Engagement dashboard. Send !engagement me to see what's held about you.";
-const adminsUnknown = "Organisers get the Engagement dashboard by email: send !engagement email your@address.";
+const notAdmin = "Sorry, only the group's organisers can see the dashboard. You can still send *!engagement me* to see what's been counted for you.";
+const adminsUnknown = "To get the dashboard, organisers can send *!engagement email* followed by their email address.";
 
 // Admins get a personal link by DM; the group is told one was sent, so it's
 // visible who is looking at the dashboard.
@@ -41,8 +41,8 @@ async function sendDashboardLink(event: MatrixEvent): Promise<Reply[] | Reply> {
     if (!link) return "The dashboard link isn't set up on this server (hub_url is missing).";
 
     return [
-        { message: `Sent ${event.displayname ?? "you"} a private link to the Engagement dashboard.` },
-        { recipient: event.sender, message: `Here's your link to the Engagement dashboard for that group. It's personal, so please don't share it, and it stops working if you stop being an admin or ask for a new one:\n${link}` },
+        { message: `📧 Sent ${event.displayname ?? "you"} a private link to the dashboard.` },
+        { recipient: event.sender, message: `Here's your private link to the Engagement dashboard. Please don't share it:\n${link}` },
     ];
 }
 
@@ -50,17 +50,22 @@ function count(n: number, word: string) {
     return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+// "today", "yesterday" or "17 Oct", which reads better in a chat than a date stamp
 function day(ts: number | null) {
-    return ts ? new Date(ts).toISOString().slice(0, 10) : "never";
+    if (!ts) return "never";
+    const days = Math.floor((Date.now() - ts) / (24 * 60 * 60 * 1000));
+    if (days <= 0) return "today";
+    if (days === 1) return "yesterday";
+    return new Date(ts).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
 async function aiStatus(event: MatrixEvent) {
     if (await isAiOptedOut(event.room_id, event.sender))
-        return "Their messages are kept out of AI theme summaries (react ✅ to any AI summary message to include them).";
+        return "🤖 Your messages are left out of AI summaries. React ✅ to any AI summary message to change that.";
     const { enabled } = await getAiSettings(event.room_id);
     return enabled
-        ? "AI theme summaries are on here and their messages may be included (react ❌ to any AI summary message to leave them out)."
-        : "AI theme summaries are off here.";
+        ? "🤖 AI summaries are on, and your messages may be included. React ❌ to any AI summary message to leave them out."
+        : "🤖 AI summaries are off in this group.";
 }
 
 // Replies in the group rather than privately, because private messages from
@@ -70,16 +75,21 @@ async function describeMe(event: MatrixEvent): Promise<Reply> {
     const name = event.displayname ?? "you";
 
     if (await isOptedOut(event.room_id, event.sender))
-        return `📊 ${name} has opted out of the Engagement tool here, so nothing is held about them. Send !engagement optin to change that.`;
+        return `📊 ${name}, you've opted out, so nothing is being counted for you. Send *!engagement optin* if you'd like to be counted again.`;
 
     const dashboard = computeDashboard(await getActivity(event.room_id), await getRoom(event.room_id), 0);
     const me = dashboard.participants.find(p => p.id === event.sender);
 
-    const summary = me
-        ? `Since ${day(dashboard.coverage.from)}: ${count(me.messages, "message")} (${me.replies} of them replies), ${count(me.reactions, "reaction")}, ${count(me.links, "link")} shared, and ${me.responsesReceived} replies or reactions from others. Last active ${day(me.lastActive)}.`
-        : "Nothing recorded yet.";
+    const counts = me
+        ? `💬 ${count(me.messages, "message")}${me.replies ? ` (${me.replies} of them ${me.replies === 1 ? "a reply" : "replies"})` : ""}\n` +
+          `👍 ${count(me.reactions, "reaction")}\n` +
+          `🔗 ${count(me.links, "link")} shared\n` +
+          `🔥 ${me.responsesReceived} replies and reactions from others\n` +
+          `🕒 Last active: ${day(me.lastActive)}`
+        : "Nothing counted for you yet.";
 
-    return `📊 What the Engagement tool holds about ${name}: ${summary}\n\n${await aiStatus(event)}\n\nIt never stores what anyone writes. Send !engagement optout to delete this and stop tracking.`;
+    return `📊 *Here's what's been counted for ${name}* (since ${day(dashboard.coverage.from)})\n\n${counts}\n\n${await aiStatus(event)}\n\n` +
+        "The tool never saves what anyone writes. Send *!engagement optout* to stop being counted and delete this.";
 }
 
 export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]> {
@@ -93,22 +103,22 @@ export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]
 
     if (args === "optout" || args === "opt out") {
         await optOut(roomId, event.sender);
-        return `Done, ${event.displayname ?? "you"} won't be tracked by the Engagement tool here, and what was held has been deleted.`;
+        return `✅ Done, ${event.displayname ?? "you"}. You won't be counted any more, and your data has been deleted. Send *!engagement optin* if you change your mind.`;
     }
 
     if (args === "optin" || args === "opt in") {
         await optIn(roomId, event.sender);
-        return `Thanks, ${event.displayname ?? "you"} will be included from now on.`;
+        return `✅ Thanks, ${event.displayname ?? "you"}! You'll be counted again from now on.`;
     }
 
     if (args === "ai optout" || args === "ai opt out") {
         await aiOptOut(roomId, event.sender, null);
-        return `Done, ${event.displayname ?? "your"}${event.displayname ? "'s" : ""} messages will be left out of AI theme summaries here. (!engagement ai optin to include them again.)`;
+        return `✅ Done, ${event.displayname ?? "you"}. Your messages will be left out of AI summaries.`;
     }
 
     if (args === "ai optin" || args === "ai opt in") {
         await aiOptIn(roomId, event.sender);
-        return `Thanks, ${event.displayname ?? "your"}${event.displayname ? "'s" : ""} messages may be included in AI theme summaries here.`;
+        return `✅ Thanks, ${event.displayname ?? "you"}. Your messages may be included in AI summaries again.`;
     }
 
     if (args === "email" || args.startsWith("email "))
@@ -120,11 +130,11 @@ export async function handleCommand(event: MatrixEvent): Promise<Reply | Reply[]
     if (args === "forget") {
         const admin = await isAdmin(roomId, event.sender);
         if (!admin) return admin === null
-            ? "Organisers can delete everything held for this group from the dashboard."
-            : "Only this group's admins can delete the group's data. Send !engagement optout to delete your own.";
+            ? "Organisers can delete all the group's data from the dashboard, under Settings & privacy."
+            : "Sorry, only the group's admins can do that. To delete just your own data, send *!engagement optout*.";
 
         return {
-            message: `React to this message with ${FORGET_EMOJI} to delete everything the Engagement tool holds for this group. Tracking starts afresh afterwards unless the tool is also removed (⚙️, then 🙏).`,
+            message: `⚠️ React ${FORGET_EMOJI} to this message to delete everything the tool has counted for this group. This can't be undone.`,
             context: { engagementConfirm: "forget" },
         };
     }
@@ -143,22 +153,22 @@ export async function handleConfirmation(event: MatrixEvent): Promise<Reply | un
 
         if (emoji.includes(OPT_OUT_EMOJI)) {
             await aiOptOut(event.room_id, event.sender, event.event_id);
-            return `👍 Got it, ${name}: your messages will be left out of AI summaries. React ✅ to an AI summary message any time to be included again.`;
+            return `👍 Got it, ${name}. Your messages will be left out of AI summaries. Changed your mind? React ✅.`;
         }
 
         if (OPT_IN_EMOJIS.some(tick => emoji.includes(tick))) {
             if (!await isAiOptedOut(event.room_id, event.sender)) return undefined;
             await aiOptIn(event.room_id, event.sender);
-            return `👍 Thanks, ${name}: your messages may be included in AI summaries again.`;
+            return `👍 Thanks, ${name}. Your messages may be included in AI summaries again.`;
         }
     }
 
     if (confirming === "forget" && emoji.includes(FORGET_EMOJI.replace("️", ""))) {
         if (!await isAdmin(event.room_id, event.sender))
-            return "Only this group's admins can delete the group's data.";
+            return "Sorry, only the group's admins can do that.";
 
         await forgetRoom(event.room_id);
-        return "Everything the Engagement tool held for this group has been deleted.";
+        return "🗑️ Done. Everything the tool had counted for this group has been deleted.";
     }
 
     return undefined;

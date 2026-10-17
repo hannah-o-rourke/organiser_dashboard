@@ -40,8 +40,8 @@ export async function importHistory(roomId: string, days: number, botUserId?: st
         await setImportedFrom(roomId, since);
 
     const announcement = await sendToGroup(roomId,
-        `📊 An organiser has added the last ${days} days of this group's activity to the Engagement dashboard (${imported} posts, reactions and joins). ` +
-        "As before, only timings are stored, never what was written. Send !engagement optout to remove yourself, or !engagement to see what's tracked.");
+        `📊 An organiser has added the last ${days} days of the group's activity to the dashboard. ` +
+        "As always, only *when* people posted is counted, never what they wrote. Send *!engagement optout* if you'd rather not be counted.");
 
     return { imported, announced: announcement.success, announcementError: announcement.message };
 }
