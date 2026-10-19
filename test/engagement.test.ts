@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classify } from "../src/classify";
+import { classify, commandArgs, isCommand } from "../src/classify";
 import { computeDashboard, weekStart } from "../src/metrics";
 import { anonymise, transcript } from "../src/themes";
 import { maskEmail, normaliseEmail } from "../src/email";
@@ -261,4 +261,15 @@ test("someone back this week after 4+ weeks away is 'back again'", () => {
     assert.ok(dashboard.participants.find(p => p.id === "@bo:x")!.patterns.includes("back"));
     assert.ok(!dashboard.participants.find(p => p.id === "@cy:x")!.patterns.includes("back"));
     assert.ok(dashboard.discussion.some(d => d.observation.includes("joined in again this week")));
+});
+
+test("a message that's just 🏆 asks for your stats and isn't counted as a message", () => {
+    for (const body of ["🏆", " 🏆 ", "🏆🏆", "🏆️"]) {
+        const event = message("$t", "@ana:x", NOW, body);
+        assert.equal(isCommand(event), true, body);
+        assert.equal(commandArgs(event), "me");
+        assert.equal(classify(event, BOT, "live"), null);
+    }
+    for (const body of ["Well done 🏆", "🏆 great work Ben"])
+        assert.equal(isCommand(message("$u", "@ana:x", NOW, body)), false, body);
 });

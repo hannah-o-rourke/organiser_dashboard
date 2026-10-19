@@ -636,7 +636,7 @@ export default function App() {
 
       <section className="settings">
         <h2>⚙️ Settings & privacy</h2>
-        <p className="note">🔒 Only organisers can see this page. Please don't share your link. Members can check what's recorded about them by sending <code>!engagement me</code>, or opt out with <code>!engagement optout</code>.</p>
+        <p className="note">🔒 Only organisers can see this page. Please don't share your link. Members can check what's recorded about them by sending 🏆 (or <code>!engagement me</code>), or opt out with <code>!engagement optout</code>.</p>
         <details>
           <summary>What this dashboard can't see</summary>
           <ul className="plain">{notCaptured.map(item => <li key={item}>{item}</li>)}</ul>

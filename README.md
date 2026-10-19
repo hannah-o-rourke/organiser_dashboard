@@ -79,7 +79,7 @@ the **Questions to discuss** section, for organisers to explore with people.
   link by DM with `!engagement dashboard`, and non-admins can't be the first
   organiser.
 - **People control their own data:**
-  - `!engagement me` replies in the group with what's held about you (counts
+  - sending 🏆 (or `!engagement me`) replies in the group with what's held about you (counts
     only, never anything written)
   - `!engagement optout` deletes it and stops recording you, including your
     name on others' replies to you

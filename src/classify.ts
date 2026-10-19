@@ -14,12 +14,22 @@ const formats: { [msgtype: string]: MessageFormat } = {
     "m.file": "file",
 };
 
+// A message that's nothing but 🏆 (one or more) is a quick way to ask for your
+// own stats, the same as "!engagement me".
+const TROPHY_ONLY = /^(\u{1F3C6}[\u{FE0F}\u{1F3FB}-\u{1F3FF}]?\s*)+$/u;
+
+function isTrophy(body: string) {
+    return TROPHY_ONLY.test(body.trim());
+}
+
 export function isCommand(event: MatrixEvent) {
     const body = event.content?.body;
-    return event.type === "m.room.message" && typeof body === "string" && body.trim().toLowerCase().startsWith(COMMAND_PREFIX);
+    if (event.type !== "m.room.message" || typeof body !== "string") return false;
+    return body.trim().toLowerCase().startsWith(COMMAND_PREFIX) || isTrophy(body);
 }
 
 export function commandArgs(event: MatrixEvent) {
+    if (isTrophy(event.content.body)) return "me";
     return event.content.body.trim().slice(COMMAND_PREFIX.length).trim().toLowerCase();
 }
 

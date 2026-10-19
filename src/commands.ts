@@ -20,14 +20,14 @@ export const whatIsTracked =
     "🔒 Only the group's organisers can see the results.\n" +
     "🤖 If organisers turn on AI summaries, you'll get a message first and can say no by reacting ❌.\n\n" +
     "*What you can do:*\n" +
-    "• Send *!engagement me* to see what's been counted for you\n" +
+    "• Send 🏆 (or *!engagement me*) to see what's been counted for you\n" +
     "• Send *!engagement optout* to stop being counted and delete your data\n" +
     "• Send *!engagement optin* to be counted again";
 
 const askForEmail =
     "\n\n👋 *Organisers:* to see the dashboard, send *!engagement email* followed by your email address, and you'll be emailed a private link.";
 
-const notAdmin = "Sorry, only the group's organisers can see the dashboard. You can still send *!engagement me* to see what's been counted for you.";
+const notAdmin = "Sorry, only the group's organisers can see the dashboard. You can still send 🏆 to see what's been counted for you.";
 const adminsUnknown = "To get the dashboard, organisers can send *!engagement email* followed by their email address.";
 
 // Admins get a personal link by DM; the group is told one was sent, so it's
@@ -88,7 +88,7 @@ async function describeMe(event: MatrixEvent): Promise<Reply> {
           `🕒 Last active: ${day(me.lastActive)}`
         : "Nothing counted for you yet.";
 
-    return `📊 *Here's what's been counted for ${name}* (since ${day(dashboard.coverage.from)})\n\n${counts}\n\n${await aiStatus(event)}\n\n` +
+    return `🏆 *Here's what's been counted for ${name}* (since ${day(dashboard.coverage.from)})\n\n${counts}\n\n${await aiStatus(event)}\n\n` +
         "The tool never saves what anyone writes. Send *!engagement optout* to stop being counted and delete this.";
 }
 
